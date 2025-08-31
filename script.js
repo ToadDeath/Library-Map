@@ -1,5 +1,5 @@
 // Map setup
-var map = L.map('map').setView([39.0, -105.5], 8); // zoomed in 1 level more
+var map = L.map('map').setView([39.0, -105.5], 9); // zoomed in 1 level more
 
 // Load actual GeoJSON file
 fetch('colorado_counties.geojson')  // <-- rename file to avoid %
@@ -22,3 +22,4 @@ fetch('colorado_counties.geojson')  // <-- rename file to avoid %
       }
     }).addTo(map);
   });
+
