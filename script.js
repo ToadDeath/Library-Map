@@ -1,7 +1,7 @@
 // script.js
 
 // initialize map
-var map = L.map('map').setView([39.0, -105.5], 7); // zoomed in one level
+var map = L.map('map').setView([39.0, -105.5], 8);
 
 // basemap
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -64,3 +64,4 @@ fetch('colorado_counties.geojson')
       onEachFeature: onEachFeature
     }).addTo(map);
   });
+
