@@ -1,68 +1,87 @@
-// script.js
-
-// initialize map
+// ------------------ MAP INITIALIZATION ------------------
 var map = L.map('map').setView([39.0, -105.5], 8);
 
-// basemap
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '© OpenStreetMap'
 }).addTo(map);
 
-// store claimed counties
-var claimed = {};
+// ------------------ CLAIMED COUNTIES STATE ------------------
+var claimedCounties = {}; // Tracks which counties are claimed
 
-// style function for counties
+// ------------------ STYLE HANDLER ------------------
 function style(feature) {
-  let id = feature.properties.FULL; // use FULL (e.g., "Larimer County")
   return {
-    fillColor: claimed[id] ? '#66c2a5' : '#fee08b', // claimed = greenish, unclaimed = yellow
-    weight: 1,
+    fillColor: claimedCounties[feature.properties.FULL] ? 'orange' : 'lightblue',
+    weight: 2,
     opacity: 1,
-    color: '#333',
+    color: 'white',
+    dashArray: '3',
     fillOpacity: 0.7
   };
 }
 
-// update style when toggled
-function updateStyle(layer) {
-  layer.setStyle(style(layer.feature));
+// ------------------ HIGHLIGHT & RESET ------------------
+function highlightFeature(e) {
+  var layer = e.target;
+  layer.setStyle({
+    weight: 3,
+    color: '#666',
+    dashArray: '',
+    fillOpacity: 0.9
+  });
+  layer.bringToFront();
 }
 
-// on each county
+function resetHighlight(e) {
+  geojson.resetStyle(e.target);
+}
+
+// ------------------ TOGGLE CLAIM ------------------
+function toggleClaim(e) {
+  var layer = e.target;
+  var countyName = layer.feature.properties.FULL;
+
+  if (!countyName) {
+    alert("Error: County name undefined.");
+    return;
+  }
+
+  if (claimedCounties[countyName]) {
+    // Already claimed → unclaim it
+    var confirmUnclaim = confirm("Do you want to unclaim " + countyName + "?");
+    if (confirmUnclaim) {
+      delete claimedCounties[countyName];
+      geojson.resetStyle(layer);
+    }
+  } else {
+    // Not claimed → claim it
+    var confirmClaim = confirm("Do you want to claim " + countyName + "?");
+    if (confirmClaim) {
+      claimedCounties[countyName] = true;
+      geojson.resetStyle(layer);
+    }
+  }
+}
+
+// ------------------ EVENT HANDLER ------------------
 function onEachFeature(feature, layer) {
-  let id = feature.properties.FULL;
+  var countyName = feature.properties.FULL || "Unknown County";
+  layer.bindPopup(countyName);
 
-  layer.on('click', function () {
-    let isClaimed = claimed[id] || false;
-    let buttonLabel = isClaimed ? "Unclaim" : "Claim Library Card";
-
-    let popupContent = `
-      <strong>${id}</strong><br>
-      <button id="toggle-${id.replace(/\s+/g, '-')}" class="claim-btn">${buttonLabel}</button>
-    `;
-
-    layer.bindPopup(popupContent).openPopup();
-
-    // wait for DOM render then attach button click
-    setTimeout(() => {
-      let button = document.getElementById(`toggle-${id.replace(/\s+/g, '-')}`);
-      if (button) {
-        button.addEventListener('click', () => {
-          claimed[id] = !isClaimed; // toggle claim
-          updateStyle(layer);       // refresh color
-          layer.closePopup();       // close popup after clicking
-        });
-      }
-    }, 10);
+  layer.on({
+    mouseover: highlightFeature,
+    mouseout: resetHighlight,
+    click: toggleClaim
   });
 }
 
-// load GeoJSON
+// ------------------ LOAD GEOJSON ------------------
+var geojson;
 fetch('colorado_counties.geojson')
-  .then(res => res.json())
+  .then(response => response.json())
   .then(data => {
-    L.geoJSON(data, {
+    geojson = L.geoJson(data, {
       style: style,
       onEachFeature: onEachFeature
     }).addTo(map);
