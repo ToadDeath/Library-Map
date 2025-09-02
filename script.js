@@ -14,7 +14,7 @@ var claimed = {};
 
 // style function for counties
 function style(feature) {
-  let id = feature.properties.NAME; // change if your GeoJSON uses different property
+  let id = feature.properties.FULL; // use FULL (e.g., "Larimer County")
   return {
     fillColor: claimed[id] ? '#66c2a5' : '#fee08b', // claimed = greenish, unclaimed = yellow
     weight: 1,
@@ -31,26 +31,29 @@ function updateStyle(layer) {
 
 // on each county
 function onEachFeature(feature, layer) {
-  let id = feature.properties.NAME;
+  let id = feature.properties.FULL;
 
   layer.on('click', function () {
     let isClaimed = claimed[id] || false;
     let buttonLabel = isClaimed ? "Unclaim" : "Claim Library Card";
 
     let popupContent = `
-      <strong>${id} County</strong><br>
-      <button id="toggle-${id}">${buttonLabel}</button>
+      <strong>${id}</strong><br>
+      <button id="toggle-${id.replace(/\s+/g, '-')}" class="claim-btn">${buttonLabel}</button>
     `;
 
     layer.bindPopup(popupContent).openPopup();
 
     // wait for DOM render then attach button click
     setTimeout(() => {
-      document.getElementById(`toggle-${id}`).addEventListener('click', () => {
-        claimed[id] = !isClaimed; // toggle claim
-        updateStyle(layer); // refresh color
-        layer.closePopup(); // close popup after clicking
-      });
+      let button = document.getElementById(`toggle-${id.replace(/\s+/g, '-')}`);
+      if (button) {
+        button.addEventListener('click', () => {
+          claimed[id] = !isClaimed; // toggle claim
+          updateStyle(layer);       // refresh color
+          layer.closePopup();       // close popup after clicking
+        });
+      }
     }, 10);
   });
 }
@@ -64,4 +67,3 @@ fetch('colorado_counties.geojson')
       onEachFeature: onEachFeature
     }).addTo(map);
   });
-
