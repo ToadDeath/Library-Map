@@ -3,28 +3,14 @@ html, body {
   padding: 0;
   height: 100%;
   display: flex;
-  justify-content: center;  /* center horizontally */
-  align-items: center;      /* center vertically */
-  background: #f4f4f4;      /* light background to make the map pop */
+  justify-content: center;  /* centers horizontally */
+  align-items: center;      /* centers vertically */
+  background: #f4f4f4;      /* neutral backdrop so the map stands out */
 }
 
 #map {
-  width: 800px;      /* fixed width */
-  height: 600px;     /* fixed height */
+  width: 800px;   /* adjust size as needed */
+  height: 600px;  /* adjust size as needed */
   border: 2px solid #333;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3); /* subtle shadow */
-  border-radius: 8px;
-}
-
-.leaflet-popup-content button {
-  background: #4CAF50;
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.leaflet-popup-content button:hover {
-  background: #45a049;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3); /* subtle shadow for depth */
 }
