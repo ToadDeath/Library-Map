@@ -1,19 +1,21 @@
-/* ====== Reset and Layout ====== */
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  font-family: Arial, sans-serif; /* Adds consistent font */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f4f4f4; /* neutral background outside the map */
 }
 
-/* ====== Map Container ====== */
 #map {
-  width: 100%;
-  height: 100vh;
-  border: 2px solid #333;
+  width: 70vw;   /* take 70% of viewport width */
+  height: 80vh;  /* take 80% of viewport height */
+  border: 3px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
 
-/* ====== Popup Buttons ====== */
 .leaflet-popup-content button {
   background: #4CAF50;
   color: white;
@@ -21,16 +23,8 @@ html, body {
   padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
 }
 
 .leaflet-popup-content button:hover {
   background: #45a049;
-}
-
-/* ====== Claimed County Highlight ====== */
-.claimed {
-  fill-opacity: 0.6; /* Slightly dimmed overlay for claimed counties */
-  stroke: #000;
-  stroke-width: 1.5;
 }
