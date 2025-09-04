@@ -1,27 +1,30 @@
-// ------------------ MAP INITIALIZATION ------------------
-var map = L.map('map').setView([39.0, -105.5], 8);
+// ------------------ SECTION 1: MAP INITIALIZATION ------------------
+var map = L.map('map', {
+  zoomControl: true,
+  attributionControl: false
+}).setView([40.0, -105.5], 8); // Centered on Colorado
 
-// ------------------ CLAIMED COUNTIES STATE ------------------
+// ------------------ SECTION 2: CLAIMED COUNTIES STATE ------------------
 var claimedCounties = {}; // Tracks which counties are claimed
 
-// ------------------ STYLE HANDLER ------------------
+// ------------------ SECTION 3: STYLE HANDLER ------------------
 function style(feature) {
   return {
-    fillColor: claimedCounties[feature.properties.FULL] ? 'orange' : 'lightblue',
+    fillColor: claimedCounties[feature.properties.FULL] ? '#002868' : '#BF0A30', // Blue if claimed, Red if unclaimed
     weight: 2,
     opacity: 1,
-    color: 'white',
-    dashArray: '3',
-    fillOpacity: 0.7
+    color: 'white', // solid white borders
+    dashArray: '', // no dashed lines
+    fillOpacity: 0.8
   };
 }
 
-// ------------------ HIGHLIGHT & RESET ------------------
+// ------------------ SECTION 4: HIGHLIGHT & RESET ------------------
 function highlightFeature(e) {
   var layer = e.target;
   layer.setStyle({
-    weight: 3,
-    color: '#666',
+    weight: 4,
+    color: '#333', // darker gray shadow effect
     dashArray: '',
     fillOpacity: 0.9
   });
@@ -32,48 +35,63 @@ function resetHighlight(e) {
   geojson.resetStyle(e.target);
 }
 
-// ------------------ TOGGLE CLAIM ------------------
-function toggleClaim(countyName, layer) {
-  if (claimedCounties[countyName]) {
-    delete claimedCounties[countyName]; // unclaim
-  } else {
-    claimedCounties[countyName] = true; // claim
+// ------------------ SECTION 5: TOGGLE CLAIM ------------------
+function toggleClaim(e) {
+  var layer = e.target;
+  var countyName = layer.feature.properties.FULL;
+
+  if (!countyName) {
+    layer.bindPopup("Error: County name undefined.").openPopup();
+    return;
   }
-  geojson.resetStyle(layer); // refresh style
-  layer.closePopup();        // close popup after clicking
+
+  if (claimedCounties[countyName]) {
+    // Already claimed → unclaim it
+    delete claimedCounties[countyName];
+    geojson.resetStyle(layer);
+    layer.bindPopup(countyName + "<br><button onclick='claimCounty(\"" + countyName + "\")'>Claim</button>").openPopup();
+  } else {
+    // Not claimed → claim it
+    claimedCounties[countyName] = true;
+    geojson.resetStyle(layer);
+    layer.bindPopup(countyName + "<br><button onclick='unclaimCounty(\"" + countyName + "\")'>Unclaim</button>").openPopup();
+  }
 }
 
-// ------------------ EVENT HANDLER ------------------
-function onEachFeature(feature, layer) {
-  var countyName = feature.properties.FULL || "Unknown County";
-
-  layer.on({
-    mouseover: highlightFeature,
-    mouseout: resetHighlight,
-    click: function () {
-      let isClaimed = claimedCounties[countyName] || false;
-      let buttonLabel = isClaimed ? "Unclaim" : "Claim Library Card";
-
-      // Leaflet popup with a button
-      let popupContent = `
-        <strong>${countyName}</strong><br>
-        <button id="toggle-${countyName.replace(/\s+/g, '-')}">${buttonLabel}</button>
-      `;
-
-      layer.bindPopup(popupContent).openPopup();
-
-      // attach button click after popup is rendered
-      setTimeout(() => {
-        let btn = document.getElementById(`toggle-${countyName.replace(/\s+/g, '-')}`);
-        if (btn) {
-          btn.addEventListener('click', () => toggleClaim(countyName, layer));
-        }
-      }, 50);
+// ------------------ SECTION 6: POPUP BUTTON HELPERS ------------------
+function claimCounty(countyName) {
+  claimedCounties[countyName] = true;
+  geojson.eachLayer(function(layer) {
+    if (layer.feature.properties.FULL === countyName) {
+      geojson.resetStyle(layer);
+      layer.closePopup();
     }
   });
 }
 
-// ------------------ LOAD GEOJSON ------------------
+function unclaimCounty(countyName) {
+  delete claimedCounties[countyName];
+  geojson.eachLayer(function(layer) {
+    if (layer.feature.properties.FULL === countyName) {
+      geojson.resetStyle(layer);
+      layer.closePopup();
+    }
+  });
+}
+
+// ------------------ SECTION 7: EVENT HANDLER ------------------
+function onEachFeature(feature, layer) {
+  var countyName = feature.properties.FULL || "Unknown County";
+  layer.bindPopup(countyName + "<br><button onclick='claimCounty(\"" + countyName + "\")'>Claim</button>");
+
+  layer.on({
+    mouseover: highlightFeature,
+    mouseout: resetHighlight,
+    click: toggleClaim
+  });
+}
+
+// ------------------ SECTION 8: LOAD GEOJSON ------------------
 var geojson;
 fetch('colorado_counties.geojson')
   .then(response => response.json())
@@ -82,7 +100,4 @@ fetch('colorado_counties.geojson')
       style: style,
       onEachFeature: onEachFeature
     }).addTo(map);
-    
-    // zoom & center to counties only
-    map.fitBounds(geojson.getBounds());
   });
