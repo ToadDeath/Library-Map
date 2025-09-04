@@ -1,103 +1,142 @@
-// ------------------ SECTION 1: MAP INITIALIZATION ------------------
-var map = L.map('map', {
+// ------------------ SECTION 1 - MAP INITIALIZATION ------------------
+const map = L.map('map', {
   zoomControl: true,
   attributionControl: false
-}).setView([40.0, -105.5], 8); // Centered on Colorado
+}).setView([39.0, -105.5], 8); // centered on Colorado
 
-// ------------------ SECTION 2: CLAIMED COUNTIES STATE ------------------
-var claimedCounties = {}; // Tracks which counties are claimed
+let geojson; // will hold the layer
 
-// ------------------ SECTION 3: STYLE HANDLER ------------------
-function style(feature) {
+
+// ------------------ SECTION 2 - CLAIM STATE ------------------
+const claimed = {}; // key by unique county id
+
+
+// ------------------ SECTION 3 - HELPERS ------------------
+function getCountyId(feature) {
+  // Prefer unique FIPS if present, else fall back to FULL name
+  return String(
+    feature.properties.CNTY_FIPS ||
+    feature.properties.US_FIPS ||
+    feature.properties.FIPS ||
+    feature.properties.FULL
+  );
+}
+
+function getCountyName(feature) {
+  return (
+    feature.properties.FULL ||
+    feature.properties.COUNTY ||
+    feature.properties.LABEL ||
+    "Unknown County"
+  );
+}
+
+function sanitizeId(str) {
+  return String(str).replace(/\s+/g, "-").replace(/[^A-Za-z0-9\-_]/g, "");
+}
+
+
+// ------------------ SECTION 4 - STYLES ------------------
+function countyStyle(feature) {
+  const id = getCountyId(feature);
+  const isClaimed = !!claimed[id];
   return {
-    fillColor: claimedCounties[feature.properties.FULL] ? '#002868' : '#BF0A30', // Blue if claimed, Red if unclaimed
+    fillColor: isClaimed ? "#002868" : "#BF0A30",
+    color: "white",         // solid white borders
     weight: 2,
-    opacity: 1,
-    color: 'white', // solid white borders
-    dashArray: '', // no dashed lines
-    fillOpacity: 0.8
+    dashArray: "",          // no dashes
+    fillOpacity: 0.85
   };
 }
 
-// ------------------ SECTION 4: HIGHLIGHT & RESET ------------------
 function highlightFeature(e) {
-  var layer = e.target;
+  const layer = e.target;
+  // simulate a shadow by thickening and darkening the stroke on hover
   layer.setStyle({
     weight: 4,
-    color: '#333', // darker gray shadow effect
-    dashArray: '',
+    color: "#333",
     fillOpacity: 0.9
   });
-  layer.bringToFront();
+  if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+    layer.bringToFront();
+  }
 }
 
 function resetHighlight(e) {
   geojson.resetStyle(e.target);
 }
 
-// ------------------ SECTION 5: TOGGLE CLAIM ------------------
-function toggleClaim(e) {
-  var layer = e.target;
-  var countyName = layer.feature.properties.FULL;
 
-  if (!countyName) {
-    layer.bindPopup("Error: County name undefined.").openPopup();
-    return;
-  }
-
-  if (claimedCounties[countyName]) {
-    // Already claimed → unclaim it
-    delete claimedCounties[countyName];
-    geojson.resetStyle(layer);
-    layer.bindPopup(countyName + "<br><button onclick='claimCounty(\"" + countyName + "\")'>Claim</button>").openPopup();
-  } else {
-    // Not claimed → claim it
-    claimedCounties[countyName] = true;
-    geojson.resetStyle(layer);
-    layer.bindPopup(countyName + "<br><button onclick='unclaimCounty(\"" + countyName + "\")'>Unclaim</button>").openPopup();
-  }
+// ------------------ SECTION 5 - POPUP ACTIONS ------------------
+function claimById(id) {
+  claimed[id] = true;
+  refreshOne(id);
 }
 
-// ------------------ SECTION 6: POPUP BUTTON HELPERS ------------------
-function claimCounty(countyName) {
-  claimedCounties[countyName] = true;
-  geojson.eachLayer(function(layer) {
-    if (layer.feature.properties.FULL === countyName) {
+function unclaimById(id) {
+  delete claimed[id];
+  refreshOne(id);
+}
+
+function refreshOne(id) {
+  geojson.eachLayer(layer => {
+    if (getCountyId(layer.feature) === id) {
       geojson.resetStyle(layer);
       layer.closePopup();
     }
   });
 }
 
-function unclaimCounty(countyName) {
-  delete claimedCounties[countyName];
-  geojson.eachLayer(function(layer) {
-    if (layer.feature.properties.FULL === countyName) {
-      geojson.resetStyle(layer);
-      layer.closePopup();
-    }
-  });
-}
 
-// ------------------ SECTION 7: EVENT HANDLER ------------------
-function onEachFeature(feature, layer) {
-  var countyName = feature.properties.FULL || "Unknown County";
-  layer.bindPopup(countyName + "<br><button onclick='claimCounty(\"" + countyName + "\")'>Claim</button>");
+// ------------------ SECTION 6 - INTERACTION ------------------
+function onEachCounty(feature, layer) {
+  const id = getCountyId(feature);
+  const name = getCountyName(feature);
+  const domId = sanitizeId(id);
 
+  // hover effect
   layer.on({
     mouseover: highlightFeature,
-    mouseout: resetHighlight,
-    click: toggleClaim
+    mouseout: resetHighlight
+  });
+
+  // click opens a Leaflet popup with a button - no auto toggle
+  layer.on("click", function () {
+    const isClaimed = !!claimed[id];
+    const btnLabel = isClaimed ? "Unclaim" : "Claim Library Card";
+
+    const html = `
+      <strong>${name}</strong><br>
+      <button id="btn-${domId}" class="claim-btn">${btnLabel}</button>
+    `;
+
+    layer.bindPopup(html).openPopup();
+
+    // attach handler after popup renders
+    setTimeout(() => {
+      const btn = document.getElementById(`btn-${domId}`);
+      if (!btn) return;
+      btn.addEventListener("click", () => {
+        if (claimed[id]) unclaimById(id);
+        else claimById(id);
+      });
+    }, 0);
   });
 }
 
-// ------------------ SECTION 8: LOAD GEOJSON ------------------
-var geojson;
-fetch('colorado_counties.geojson')
-  .then(response => response.json())
+
+// ------------------ SECTION 7 - LOAD GEOJSON ------------------
+// No basemap. The counties are the whole visualization.
+// Ensure your CSS gives #map a real size or you will see a skinny line.
+fetch("colorado_counties.geojson")
+  .then(r => r.json())
   .then(data => {
-    geojson = L.geoJson(data, {
-      style: style,
-      onEachFeature: onEachFeature
+    geojson = L.geoJSON(data, {
+      style: countyStyle,
+      onEachFeature: onEachCounty
     }).addTo(map);
-  });
+
+    // fit to the counties
+    map.fitBounds(geojson.getBounds());
+  })
+  .catch(err => console.error("Failed to load GeoJSON:", err));
