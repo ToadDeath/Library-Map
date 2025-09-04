@@ -5,15 +5,14 @@ html, body {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #f4f4f4; /* neutral background outside the map */
+  background: #f5f5f5;
 }
 
 #map {
-  width: 70vw;   /* take 70% of viewport width */
-  height: 80vh;  /* take 80% of viewport height */
-  border: 3px solid #333;
-  border-radius: 8px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  width: 80%;
+  height: 80vh;
+  border: 2px solid #333;
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
 }
 
 .leaflet-popup-content button {
