@@ -11,6 +11,7 @@ html, body {
 #map {
   width: 800px;   /* adjust size as needed */
   height: 600px;  /* adjust size as needed */
-  border: 2px solid #333;
+  border: none; /* remove the border */
   box-shadow: 0 4px 10px rgba(0,0,0,0.3); /* subtle shadow for depth */
 }
+
