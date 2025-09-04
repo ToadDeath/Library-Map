@@ -38,41 +38,43 @@ function resetHighlight(e) {
 }
 
 // ------------------ TOGGLE CLAIM ------------------
-function toggleClaim(e) {
-  var layer = e.target;
-  var countyName = layer.feature.properties.FULL;
-
-  if (!countyName) {
-    alert("Error: County name undefined.");
-    return;
-  }
-
+function toggleClaim(countyName, layer) {
   if (claimedCounties[countyName]) {
-    // Already claimed → unclaim it
-    var confirmUnclaim = confirm("Do you want to unclaim " + countyName + "?");
-    if (confirmUnclaim) {
-      delete claimedCounties[countyName];
-      geojson.resetStyle(layer);
-    }
+    delete claimedCounties[countyName]; // unclaim
   } else {
-    // Not claimed → claim it
-    var confirmClaim = confirm("Do you want to claim " + countyName + "?");
-    if (confirmClaim) {
-      claimedCounties[countyName] = true;
-      geojson.resetStyle(layer);
-    }
+    claimedCounties[countyName] = true; // claim
   }
+  geojson.resetStyle(layer); // refresh style
+  layer.closePopup();        // close popup after clicking
 }
 
 // ------------------ EVENT HANDLER ------------------
 function onEachFeature(feature, layer) {
   var countyName = feature.properties.FULL || "Unknown County";
-  layer.bindPopup(countyName);
 
   layer.on({
     mouseover: highlightFeature,
     mouseout: resetHighlight,
-    click: toggleClaim
+    click: function () {
+      let isClaimed = claimedCounties[countyName] || false;
+      let buttonLabel = isClaimed ? "Unclaim" : "Claim Library Card";
+
+      // Leaflet popup with a button
+      let popupContent = `
+        <strong>${countyName}</strong><br>
+        <button id="toggle-${countyName.replace(/\s+/g, '-')}">${buttonLabel}</button>
+      `;
+
+      layer.bindPopup(popupContent).openPopup();
+
+      // attach button click after popup is rendered
+      setTimeout(() => {
+        let btn = document.getElementById(`toggle-${countyName.replace(/\s+/g, '-')}`);
+        if (btn) {
+          btn.addEventListener('click', () => toggleClaim(countyName, layer));
+        }
+      }, 50);
+    }
   });
 }
 
