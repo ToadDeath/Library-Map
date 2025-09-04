@@ -82,5 +82,7 @@ fetch('colorado_counties.geojson')
       style: style,
       onEachFeature: onEachFeature
     }).addTo(map);
+    
+    // zoom & center to counties only
+    map.fitBounds(geojson.getBounds());
   });
-
