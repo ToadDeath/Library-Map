@@ -116,7 +116,7 @@ function onEachCounty(feature, layer) {
       <button id="btn-${domId}" class="claim-btn">${btnLabel}</button>
     `;
 
-    layer.bindPopup(html).openPopup();
+    layer.bindPopup(popupContent, { autoPan: false });
 
     // attach handler after popup renders
     setTimeout(() => {
@@ -146,4 +146,5 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
