@@ -1,11 +1,6 @@
 // ------------------ MAP INITIALIZATION ------------------
 var map = L.map('map').setView([39.0, -105.5], 8);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '© OpenStreetMap'
-}).addTo(map);
-
 // ------------------ CLAIMED COUNTIES STATE ------------------
 var claimedCounties = {}; // Tracks which counties are claimed
 
@@ -88,3 +83,4 @@ fetch('colorado_counties.geojson')
       onEachFeature: onEachFeature
     }).addTo(map);
   });
+
