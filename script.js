@@ -1,8 +1,14 @@
 // ------------------ SECTION 1 - MAP INITIALIZATION ------------------
 const map = L.map('map', {
-  zoomControl: true,
-  attributionControl: false
-}).setView([39.0, -105.5], 8); // centered on Colorado
+  zoomControl: false,
+  attributionControl: false,
+  dragging: false,
+  scrollWheelZoom: false,
+  doubleClickZoom: false,
+  boxZoom: false,
+  keyboard: false,
+  touchZoom: false
+}).setView([39.0, -105.5], 8);
 
 let geojson; // will hold the layer
 
@@ -140,3 +146,4 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
