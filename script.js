@@ -11,6 +11,7 @@ const map = L.map('map', {
 }).setView([39.0, -105.5], 8);
 
 let geojson; // will hold the layer
+let selectedCounty = null; // track which county is active
 
 
 // ------------------ SECTION 2 - CLAIM STATE ------------------
@@ -19,7 +20,6 @@ const claimed = {}; // key by unique county id
 
 // ------------------ SECTION 3 - HELPERS ------------------
 function getCountyId(feature) {
-  // Prefer unique FIPS if present, else fall back to FULL name
   return String(
     feature.properties.CNTY_FIPS ||
     feature.properties.US_FIPS ||
@@ -48,22 +48,25 @@ function countyStyle(feature) {
   const isClaimed = !!claimed[id];
   return {
     fillColor: isClaimed ? "#002868" : "#BF0A30",
-    color: "white",         // solid white borders
+    color: "white",
     weight: 2,
-    dashArray: "",          // no dashes
+    dashArray: "",
     fillOpacity: 0.85
   };
 }
 
 function highlightFeature(e) {
   const layer = e.target;
-  // simulate a shadow by thickening and darkening the stroke on hover
+
+  // Only highlight if no county is currently selected
+  if (selectedCounty && selectedCounty !== layer) return;
+
   layer.setStyle({
     weight: 4,
     color: "#333",
     fillOpacity: 0.9
   });
-  // add shadow effect
+
   if (layer._path) {
     layer._path.classList.add("leaflet-shadow");
   }
@@ -74,11 +77,15 @@ function highlightFeature(e) {
 }
 
 function resetHighlight(e) {
-  geojson.resetStyle(e.target);
+  const layer = e.target;
 
-  // remove shadow effect
-  if (e.target._path) {
-    e.target._path.classList.remove("leaflet-shadow");
+  // Don't reset if this is the selected county
+  if (selectedCounty === layer) return;
+
+  geojson.resetStyle(layer);
+
+  if (layer._path) {
+    layer._path.classList.remove("leaflet-shadow");
   }
 }
 
@@ -117,38 +124,47 @@ function onEachCounty(feature, layer) {
   });
 
   // click opens popup always at county centroid
-layer.on("click", function () {
-  const isClaimed = !!claimed[id];
-  const btnLabel = isClaimed ? "Unclaim Library Card" : "Claim Library Card";
+  layer.on("click", function () {
+    const isClaimed = !!claimed[id];
+    const btnLabel = isClaimed ? "Unclaim Library Card" : "Claim Library Card";
 
-  const popupContent = `
-    <div style="text-align:center;">
-      <strong>${name}</strong><br>
-      <button id="btn-${domId}" class="claim-btn">${btnLabel}</button>
-    </div>
-  `;
+    const popupContent = `
+      <div style="text-align:center;">
+        <strong>${name}</strong><br>
+        <button id="btn-${domId}" class="claim-btn">${btnLabel}</button>
+      </div>
+    `;
 
-  const center = layer.getBounds().getCenter(); // centroid
-  L.popup({ autoPan: false })
-    .setLatLng(center)
-    .setContent(popupContent)
-    .openOn(map);
+    const center = layer.getBounds().getCenter();
+    L.popup({ autoPan: false })
+      .setLatLng(center)
+      .setContent(popupContent)
+      .openOn(map);
 
-  // attach handler after popup renders
-  setTimeout(() => {
-    const btn = document.getElementById(`btn-${domId}`);
-    if (!btn) return;
-    btn.addEventListener("click", () => {
-      if (claimed[id]) unclaimById(id);
-      else claimById(id);
-    });
-  }, 0);
-});
+    // Mark this as the selected county
+    if (selectedCounty && selectedCounty !== layer) {
+      geojson.resetStyle(selectedCounty);
+      if (selectedCounty._path) {
+        selectedCounty._path.classList.remove("leaflet-shadow");
+      }
+    }
+    selectedCounty = layer;
+    highlightFeature({ target: layer });
+
+    // attach handler after popup renders
+    setTimeout(() => {
+      const btn = document.getElementById(`btn-${domId}`);
+      if (!btn) return;
+      btn.addEventListener("click", () => {
+        if (claimed[id]) unclaimById(id);
+        else claimById(id);
+      });
+    }, 0);
+  });
+}
 
 
 // ------------------ SECTION 7 - LOAD GEOJSON ------------------
-// No basemap. The counties are the whole visualization.
-// Ensure your CSS gives #map a real size or you will see a skinny line.
 fetch("colorado_counties.geojson")
   .then(r => r.json())
   .then(data => {
@@ -157,14 +173,6 @@ fetch("colorado_counties.geojson")
       onEachFeature: onEachCounty
     }).addTo(map);
 
-    // fit to the counties
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
-
-
-
-
-
-
-
