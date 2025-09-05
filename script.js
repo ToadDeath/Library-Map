@@ -112,6 +112,8 @@ function refreshOne(id) {
 
 
 // ------------------ SECTION 6 - INTERACTION ------------------
+let activePopup = L.popup({ autoPan: false }); // reuse one popup
+
 function onEachCounty(feature, layer) {
   const id = getCountyId(feature);
   const name = getCountyName(feature);
@@ -123,10 +125,9 @@ function onEachCounty(feature, layer) {
     mouseout: resetHighlight
   });
 
-  // click opens popup always at county centroid
   layer.on("click", function () {
-    // If already selected and popup open, don’t re-open
-    if (selectedCounty === layer) return;
+    // If already selected, do nothing (no blinking)
+    if (selectedCounty === layer && map.hasLayer(activePopup)) return;
 
     const isClaimed = !!claimed[id];
     const btnLabel = isClaimed ? "Unclaim Library Card" : "Claim Library Card";
@@ -139,45 +140,48 @@ function onEachCounty(feature, layer) {
     `;
 
     const center = layer.getBounds().getCenter();
-    const popup = L.popup({ autoPan: false })
+    activePopup
       .setLatLng(center)
-      .setContent(popupContent);
+      .setContent(popupContent)
+      .openOn(map);
 
-    // Open popup and set this as selected
-    popup.openOn(map);
-
+    // Reset old selection’s style
     if (selectedCounty && selectedCounty !== layer) {
       geojson.resetStyle(selectedCounty);
       if (selectedCounty._path) {
         selectedCounty._path.classList.remove("leaflet-shadow");
       }
     }
+
+    // Mark this as selected and highlight
     selectedCounty = layer;
     highlightFeature({ target: layer });
 
-    // Handle popup close (reset selection)
-    map.once("popupclose", () => {
-      geojson.resetStyle(layer);
-      if (layer._path) {
-        layer._path.classList.remove("leaflet-shadow");
-      }
-      selectedCounty = null;
-    });
-
-    // attach handler after popup renders
+    // Attach handler every time popup updates
     setTimeout(() => {
       const btn = document.getElementById(`btn-${domId}`);
       if (!btn) return;
-      btn.addEventListener("click", () => {
+      btn.onclick = () => {
         if (claimed[id]) {
           unclaimById(id);
-          btn.textContent = "Claim Library Card"; // update label immediately
+          btn.textContent = "Claim Library Card";
         } else {
           claimById(id);
-          btn.textContent = "Unclaim Library Card"; // update label immediately
+          btn.textContent = "Unclaim Library Card";
         }
-      });
+      };
     }, 0);
+
+    // When popup closes, reset selection
+    map.once("popupclose", () => {
+      if (selectedCounty) {
+        geojson.resetStyle(selectedCounty);
+        if (selectedCounty._path) {
+          selectedCounty._path.classList.remove("leaflet-shadow");
+        }
+        selectedCounty = null;
+      }
+    });
   });
 }
 
@@ -194,4 +198,5 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
