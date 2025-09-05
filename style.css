@@ -25,6 +25,11 @@ html, body {
   background: #45a049;
 }
 
+/* Shadow filter for hovered counties */
+.leaflet-shadow {
+  filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.5));
+}
+
 .leaflet-popup-content {
   text-align: center;
 }
