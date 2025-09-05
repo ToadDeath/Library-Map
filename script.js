@@ -116,34 +116,34 @@ function onEachCounty(feature, layer) {
     mouseout: resetHighlight
   });
 
-  // click opens a Leaflet popup with a button - no auto toggle
-  layer.on("click", function () {
-    const isClaimed = !!claimed[id];
-    const btnLabel = isClaimed ? "Unclaim Library Card" : "Claim Library Card";
+  // click opens popup always at county centroid
+layer.on("click", function () {
+  const isClaimed = !!claimed[id];
+  const btnLabel = isClaimed ? "Unclaim Library Card" : "Claim Library Card";
 
-    const html = `
+  const popupContent = `
+    <div style="text-align:center;">
       <strong>${name}</strong><br>
       <button id="btn-${domId}" class="claim-btn">${btnLabel}</button>
-    `;
+    </div>
+  `;
 
-    // get the center of the county (LatLng)
-    const center = layer.getBounds().getCenter();
+  const center = layer.getBounds().getCenter(); // centroid
+  L.popup({ autoPan: false })
+    .setLatLng(center)
+    .setContent(popupContent)
+    .openOn(map);
 
-    // bind popup at the center, not at click
-    layer.bindPopup(html, { autoPan: false })
-         .openPopup(center);
-
-    // attach handler after popup renders
-    setTimeout(() => {
-      const btn = document.getElementById(`btn-${domId}`);
-      if (!btn) return;
-      btn.addEventListener("click", () => {
-        if (claimed[id]) unclaimById(id);
-        else claimById(id);
-      });
-    }, 0);
-  });
-}
+  // attach handler after popup renders
+  setTimeout(() => {
+    const btn = document.getElementById(`btn-${domId}`);
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      if (claimed[id]) unclaimById(id);
+      else claimById(id);
+    });
+  }, 0);
+});
 
 
 // ------------------ SECTION 7 - LOAD GEOJSON ------------------
@@ -161,6 +161,7 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
 
 
