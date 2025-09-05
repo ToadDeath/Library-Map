@@ -113,7 +113,6 @@ function refreshOne(id) {
 
 // ------------------ SECTION 6 - INTERACTION ------------------
 let activePopup = L.popup({ autoPan: false });
-let selectedCounty = null;
 
 function onEachCounty(feature, layer) {
   const id = getCountyId(feature);
@@ -210,6 +209,7 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
 
 
