@@ -63,6 +63,11 @@ function highlightFeature(e) {
     color: "#333",
     fillOpacity: 0.9
   });
+  // add shadow effect
+  if (layer._path) {
+    layer._path.classList.add("leaflet-shadow");
+  }
+
   if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
     layer.bringToFront();
   }
@@ -70,6 +75,11 @@ function highlightFeature(e) {
 
 function resetHighlight(e) {
   geojson.resetStyle(e.target);
+
+  // remove shadow effect
+  if (e.target._path) {
+    e.target._path.classList.remove("leaflet-shadow");
+  }
 }
 
 
@@ -151,6 +161,7 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
 
 
