@@ -112,7 +112,8 @@ function refreshOne(id) {
 
 
 // ------------------ SECTION 6 - INTERACTION ------------------
-let activePopup = L.popup({ autoPan: false }); // reuse one popup
+let activePopup = L.popup({ autoPan: false });
+let selectedCounty = null;
 
 function onEachCounty(feature, layer) {
   const id = getCountyId(feature);
@@ -125,10 +126,8 @@ function onEachCounty(feature, layer) {
     mouseout: resetHighlight
   });
 
+  // click opens popup always at county centroid
   layer.on("click", function () {
-    // If already selected, do nothing (no blinking)
-    if (selectedCounty === layer && map.hasLayer(activePopup)) return;
-
     const isClaimed = !!claimed[id];
     const btnLabel = isClaimed ? "Unclaim Library Card" : "Claim Library Card";
 
@@ -140,12 +139,17 @@ function onEachCounty(feature, layer) {
     `;
 
     const center = layer.getBounds().getCenter();
-    activePopup
-      .setLatLng(center)
-      .setContent(popupContent)
-      .openOn(map);
 
-    // Reset old selection’s style
+    // prevent blinking if popup already open for this county
+    if (
+      selectedCounty === layer &&
+      activePopup.isOpen() &&
+      activePopup.getLatLng().equals(center)
+    ) {
+      return; // popup already open, do nothing
+    }
+
+    // reset style on previously selected county
     if (selectedCounty && selectedCounty !== layer) {
       geojson.resetStyle(selectedCounty);
       if (selectedCounty._path) {
@@ -153,11 +157,19 @@ function onEachCounty(feature, layer) {
       }
     }
 
-    // Mark this as selected and highlight
+    // set this county as active
     selectedCounty = layer;
+
+    // open popup
+    activePopup
+      .setLatLng(center)
+      .setContent(popupContent)
+      .openOn(map);
+
+    // force hover effect on active county
     highlightFeature({ target: layer });
 
-    // Attach handler every time popup updates
+    // attach button handler
     setTimeout(() => {
       const btn = document.getElementById(`btn-${domId}`);
       if (!btn) return;
@@ -172,7 +184,7 @@ function onEachCounty(feature, layer) {
       };
     }, 0);
 
-    // When popup closes, reset selection
+    // reset on popup close
     map.once("popupclose", () => {
       if (selectedCounty) {
         geojson.resetStyle(selectedCounty);
@@ -198,5 +210,6 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
 
