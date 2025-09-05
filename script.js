@@ -109,7 +109,7 @@ function onEachCounty(feature, layer) {
   // click opens a Leaflet popup with a button - no auto toggle
   layer.on("click", function () {
     const isClaimed = !!claimed[id];
-    const btnLabel = isClaimed ? "Unclaim" : "Claim Library Card";
+    const btnLabel = isClaimed ? "Unclaim Library Card" : "Claim Library Card";
 
     const html = `
       <strong>${name}</strong><br>
@@ -146,6 +146,7 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
 
 
