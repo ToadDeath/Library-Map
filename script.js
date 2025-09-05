@@ -125,6 +125,9 @@ function onEachCounty(feature, layer) {
 
   // click opens popup always at county centroid
   layer.on("click", function () {
+    // If already selected and popup open, don’t re-open
+    if (selectedCounty === layer) return;
+
     const isClaimed = !!claimed[id];
     const btnLabel = isClaimed ? "Unclaim Library Card" : "Claim Library Card";
 
@@ -136,12 +139,13 @@ function onEachCounty(feature, layer) {
     `;
 
     const center = layer.getBounds().getCenter();
-    L.popup({ autoPan: false })
+    const popup = L.popup({ autoPan: false })
       .setLatLng(center)
-      .setContent(popupContent)
-      .openOn(map);
+      .setContent(popupContent);
 
-    // Mark this as the selected county
+    // Open popup and set this as selected
+    popup.openOn(map);
+
     if (selectedCounty && selectedCounty !== layer) {
       geojson.resetStyle(selectedCounty);
       if (selectedCounty._path) {
@@ -151,13 +155,27 @@ function onEachCounty(feature, layer) {
     selectedCounty = layer;
     highlightFeature({ target: layer });
 
+    // Handle popup close (reset selection)
+    map.once("popupclose", () => {
+      geojson.resetStyle(layer);
+      if (layer._path) {
+        layer._path.classList.remove("leaflet-shadow");
+      }
+      selectedCounty = null;
+    });
+
     // attach handler after popup renders
     setTimeout(() => {
       const btn = document.getElementById(`btn-${domId}`);
       if (!btn) return;
       btn.addEventListener("click", () => {
-        if (claimed[id]) unclaimById(id);
-        else claimById(id);
+        if (claimed[id]) {
+          unclaimById(id);
+          btn.textContent = "Claim Library Card"; // update label immediately
+        } else {
+          claimById(id);
+          btn.textContent = "Unclaim Library Card"; // update label immediately
+        }
       });
     }, 0);
   });
@@ -176,3 +194,4 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
