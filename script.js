@@ -153,7 +153,7 @@ function onEachCounty(feature, layer) {
 
     // Highlight this county
     highlightFeature({ target: layer });
-    selectedCounty = layer;
+    selectedCounty = layer;  // DO NOT re-declare with let/const
 
     // Add button click behavior
     setTimeout(() => {
@@ -195,4 +195,5 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
