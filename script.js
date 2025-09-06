@@ -101,8 +101,6 @@ function refreshOne(id) {
 
 
 // ------------------ SECTION 6 - INTERACTION ------------------
-let activePopup = L.popup({ autoPan: false });
-
 function onEachCounty(feature, layer) {
   const id = getCountyId(feature);
   const name = getCountyName(feature);
@@ -112,9 +110,10 @@ function onEachCounty(feature, layer) {
   const centroid = turf.centroid(feature).geometry.coordinates;
   const centerLatLng = [centroid[1], centroid[0]];
 
-  // Hover: show tooltip at centroid
+  // Hover: show tooltip at centroid (only if no popup is open)
   layer.on("mouseover", () => {
-    highlightFeature({ target: layer });
+    if (map.hasLayer(activePopup)) return; // don’t show tooltip if popup is open
+    highlightFeature(layer);
     layer.bindTooltip(name, {
       permanent: false,
       direction: "center",
@@ -124,7 +123,8 @@ function onEachCounty(feature, layer) {
 
   // Leave: remove tooltip + reset style
   layer.on("mouseout", () => {
-    resetHighlight({ target: layer });
+    if (map.hasLayer(activePopup)) return; // don’t interfere with popup
+    resetHighlight(layer);
     layer.closeTooltip();
   });
 
@@ -152,8 +152,8 @@ function onEachCounty(feature, layer) {
     activePopup.setLatLng(centerLatLng).setContent(popupContent).openOn(map);
 
     // Highlight this county
-    highlightFeature({ target: layer });
-    selectedCounty = layer;  // DO NOT re-declare with let/const
+    highlightFeature(layer);
+    selectedCounty = layer;
 
     // Add button click behavior
     setTimeout(() => {
@@ -195,5 +195,6 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
 
