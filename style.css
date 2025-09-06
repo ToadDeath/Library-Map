@@ -68,3 +68,12 @@ body {
   text-align: center;
   border: none;
 }
+
+.county-tooltip {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: white !important;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px black; /* makes white text readable */
+}
