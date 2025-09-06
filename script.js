@@ -43,40 +43,50 @@ function sanitizeId(str) {
 }
 
 
-// ------------------ SECTION 4 - STYLES ------------------
-function countyStyle(feature) {
-  const id = getCountyId(feature);
-  const isClaimed = !!claimed[id];
-  return {
-    fillColor: isClaimed ? "#002868" : "#BF0A30", // blue if claimed, red if unclaimed
-    color: "white",
-    weight: 2,
-    dashArray: "",
-    fillOpacity: 0.85
-  };
-}
+// --- Section 4: Hover interaction ---
+map.on("mousemove", function (e) {
+  // If a popup is currently open, don't show hover labels
+  if (map._popup) {
+    if (hoverLabel) {
+      map.removeLayer(hoverLabel);
+      hoverLabel = null;
+    }
+    return;
+  }
 
-function highlightFeature(layer) {
-  layer.setStyle({
-    weight: 4,
-    color: "#333",
-    fillOpacity: 0.9
+  let countyFound = false;
+
+  geojson.eachLayer(function (layer) {
+    if (layer.feature && layer.getBounds().contains(e.latlng)) {
+      countyFound = true;
+
+      // Remove old label before adding a new one
+      if (hoverLabel) {
+        map.removeLayer(hoverLabel);
+        hoverLabel = null;
+      }
+
+      // Always recalculate from the county's center
+      const center = layer.getBounds().getCenter();
+
+      hoverLabel = L.tooltip({
+        permanent: true,
+        direction: "center",
+        className: "county-label",
+        offset: [0, 0]
+      })
+        .setContent(layer.feature.properties.NAME)
+        .setLatLng(center)
+        .addTo(map);
+    }
   });
-  if (layer._path) {
-    layer._path.classList.add("leaflet-shadow");
-  }
-  if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-    layer.bringToFront();
-  }
-}
 
-function resetHighlight(layer) {
-  if (selectedCounty === layer) return; // don’t reset if active
-  geojson.resetStyle(layer);
-  if (layer._path) {
-    layer._path.classList.remove("leaflet-shadow");
+  // If not hovering over a county, clear the label
+  if (!countyFound && hoverLabel) {
+    map.removeLayer(hoverLabel);
+    hoverLabel = null;
   }
-}
+});
 
 
 // ------------------ SECTION 5 - CLAIM LOGIC ------------------
@@ -200,6 +210,7 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
 
 
