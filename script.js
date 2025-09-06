@@ -119,6 +119,13 @@ function onEachCounty(feature, layer) {
   const name = getCountyName(feature);
   const domId = sanitizeId(id);
 
+  // Tooltip on hover
+  layer.bindTooltip(name, {
+    permanent: false,    // only on hover
+    direction: "center", // appears in the middle of the county
+    className: "county-tooltip"
+  });
+
   // hover effect
   layer.on({
     mouseover: highlightFeature,
@@ -210,6 +217,7 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
 
 
