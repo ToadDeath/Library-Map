@@ -2,12 +2,14 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  background-color: #1e1e1e; /* dark gray page background */
+  color: white; /* default text color */
 }
 
 #map {
   width: 100%;
   height: 100vh;
-  background: transparent !important;
+  background-color: #1e1e1e; /* match page background */
 }
 
 .leaflet-popup-content button {
@@ -35,17 +37,13 @@ html, body {
 }
 
 .claim-btn {
-  width: 160px;       /* consistent width */
-  text-align: center; /* center text inside */
-}
-
-body {
-  background: transparent;
+  width: 160px;       
+  text-align: center; 
 }
 
 .custom-popup {
   text-align: center;
-  width: 220px; /* consistent width */
+  width: 220px; 
 }
 
 .custom-popup .leaflet-popup-content {
