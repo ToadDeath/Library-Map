@@ -101,26 +101,34 @@ function refreshOne(id) {
 
 
 // ------------------ SECTION 6 - INTERACTION ------------------
+let activePopup = L.popup({ autoPan: false });
+
 function onEachCounty(feature, layer) {
   const id = getCountyId(feature);
   const name = getCountyName(feature);
   const domId = sanitizeId(id);
 
-  // Always show name as tooltip (optional — remove if you don’t want tooltips)
+  // Compute centroid with Turf
   const centroid = turf.centroid(feature).geometry.coordinates;
-  layer.bindTooltip(name, {
-    permanent: true,
-    direction: "center",
-    className: "county-tooltip"
-  }).setLatLng([centroid[1], centroid[0]]);
+  const centerLatLng = [centroid[1], centroid[0]];
 
-  // Hover effects
-  layer.on({
-    mouseover: () => highlightFeature(layer),
-    mouseout: () => resetHighlight(layer)
+  // Hover: show tooltip at centroid
+  layer.on("mouseover", () => {
+    highlightFeature({ target: layer });
+    layer.bindTooltip(name, {
+      permanent: false,
+      direction: "center",
+      className: "county-tooltip"
+    }).openTooltip(centerLatLng);
   });
 
-  // Click handler
+  // Leave: remove tooltip + reset style
+  layer.on("mouseout", () => {
+    resetHighlight({ target: layer });
+    layer.closeTooltip();
+  });
+
+  // Click: open popup at centroid
   layer.on("click", () => {
     const isClaimed = !!claimed[id];
     const btnLabel = isClaimed ? "Unclaim Library Card" : "Claim Library Card";
@@ -132,9 +140,7 @@ function onEachCounty(feature, layer) {
       </div>
     `;
 
-    const center = layer.getBounds().getCenter();
-
-    // Reset style on previously selected county
+    // Reset previously selected county
     if (selectedCounty && selectedCounty !== layer) {
       geojson.resetStyle(selectedCounty);
       if (selectedCounty._path) {
@@ -142,17 +148,14 @@ function onEachCounty(feature, layer) {
       }
     }
 
-    // Hide tooltip while popup is open
-    layer.closeTooltip();
-
-    // Open popup
-    activePopup.setLatLng(center).setContent(popupContent).openOn(map);
+    // Open popup at centroid
+    activePopup.setLatLng(centerLatLng).setContent(popupContent).openOn(map);
 
     // Highlight this county
-    highlightFeature(layer);
+    highlightFeature({ target: layer });
     selectedCounty = layer;
 
-    // Attach claim/unclaim button
+    // Add button click behavior
     setTimeout(() => {
       const btn = document.getElementById(`btn-${domId}`);
       if (!btn) return;
@@ -162,11 +165,11 @@ function onEachCounty(feature, layer) {
         } else {
           claimById(id);
         }
-        map.closePopup(); // close after action
+        map.closePopup();
       };
     }, 0);
 
-    // Reset on popup close
+    // Reset when popup closes
     map.once("popupclose", () => {
       if (selectedCounty) {
         geojson.resetStyle(selectedCounty);
@@ -192,3 +195,4 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
