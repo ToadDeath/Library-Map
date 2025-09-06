@@ -10,8 +10,9 @@ const map = L.map('map', {
   touchZoom: false
 }).setView([39.0, -105.5], 8);
 
-let geojson; // will hold the layer
+let geojson;               // will hold the layer
 let selectedCounty = null; // track which county is active
+let activePopup = L.popup({ autoPan: false }); // global popup
 
 
 // ------------------ SECTION 2 - CLAIM STATE ------------------
@@ -47,7 +48,7 @@ function countyStyle(feature) {
   const id = getCountyId(feature);
   const isClaimed = !!claimed[id];
   return {
-    fillColor: isClaimed ? "#002868" : "#BF0A30",
+    fillColor: isClaimed ? "#002868" : "#BF0A30", // blue if claimed, red if unclaimed
     color: "white",
     weight: 2,
     dashArray: "",
@@ -55,42 +56,30 @@ function countyStyle(feature) {
   };
 }
 
-function highlightFeature(e) {
-  const layer = e.target;
-
-  // Only highlight if no county is currently selected
-  if (selectedCounty && selectedCounty !== layer) return;
-
+function highlightFeature(layer) {
   layer.setStyle({
     weight: 4,
     color: "#333",
     fillOpacity: 0.9
   });
-
   if (layer._path) {
     layer._path.classList.add("leaflet-shadow");
   }
-
   if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
     layer.bringToFront();
   }
 }
 
-function resetHighlight(e) {
-  const layer = e.target;
-
-  // Don't reset if this is the selected county
-  if (selectedCounty === layer) return;
-
+function resetHighlight(layer) {
+  if (selectedCounty === layer) return; // don’t reset if active
   geojson.resetStyle(layer);
-
   if (layer._path) {
     layer._path.classList.remove("leaflet-shadow");
   }
 }
 
 
-// ------------------ SECTION 5 - POPUP ACTIONS ------------------
+// ------------------ SECTION 5 - CLAIM LOGIC ------------------
 function claimById(id) {
   claimed[id] = true;
   refreshOne(id);
@@ -112,29 +101,27 @@ function refreshOne(id) {
 
 
 // ------------------ SECTION 6 - INTERACTION ------------------
-let activePopup = L.popup({ autoPan: false });
-
 function onEachCounty(feature, layer) {
   const id = getCountyId(feature);
   const name = getCountyName(feature);
   const domId = sanitizeId(id);
 
-  // Tooltip on hover
+  // Always show name as tooltip (optional — remove if you don’t want tooltips)
   const centroid = turf.centroid(feature).geometry.coordinates;
-layer.bindTooltip(name, {
-  permanent: true,
-  direction: "center",
-  className: "county-tooltip"
-}).setLatLng([centroid[1], centroid[0]]);
+  layer.bindTooltip(name, {
+    permanent: true,
+    direction: "center",
+    className: "county-tooltip"
+  }).setLatLng([centroid[1], centroid[0]]);
 
-  // hover effect
+  // Hover effects
   layer.on({
-    mouseover: highlightFeature,
-    mouseout: resetHighlight
+    mouseover: () => highlightFeature(layer),
+    mouseout: () => resetHighlight(layer)
   });
 
-  // click opens popup always at county centroid
-  layer.on("click", function () {
+  // Click handler
+  layer.on("click", () => {
     const isClaimed = !!claimed[id];
     const btnLabel = isClaimed ? "Unclaim Library Card" : "Claim Library Card";
 
@@ -147,16 +134,7 @@ layer.bindTooltip(name, {
 
     const center = layer.getBounds().getCenter();
 
-    // prevent blinking if popup already open for this county
-    if (
-      selectedCounty === layer &&
-      activePopup.isOpen() &&
-      activePopup.getLatLng().equals(center)
-    ) {
-      return; // popup already open, do nothing
-    }
-
-    // reset style on previously selected county
+    // Reset style on previously selected county
     if (selectedCounty && selectedCounty !== layer) {
       geojson.resetStyle(selectedCounty);
       if (selectedCounty._path) {
@@ -164,42 +142,17 @@ layer.bindTooltip(name, {
       }
     }
 
-     // hide tooltip while popup is open
+    // Hide tooltip while popup is open
     layer.closeTooltip();
 
-    activePopup
-      .setLatLng(center)
-      .setContent(popupContent)
-      .openOn(map);
+    // Open popup
+    activePopup.setLatLng(center).setContent(popupContent).openOn(map);
 
-    highlightFeature({ target: layer });
-
-    setTimeout(() => {
-      const btn = document.getElementById(`btn-${domId}`);
-      if (!btn) return;
-      btn.onclick = () => {
-        if (claimed[id]) {
-          unclaimById(id);
-        } else {
-          claimById(id);
-        }
-        map.closePopup(); // close after click
-      };
-    }, 0);
-    
-    // set this county as active
+    // Highlight this county
+    highlightFeature(layer);
     selectedCounty = layer;
 
-    // open popup
-    activePopup
-      .setLatLng(center)
-      .setContent(popupContent)
-      .openOn(map);
-
-    // force hover effect on active county
-    highlightFeature({ target: layer });
-
-   // attach button handler
+    // Attach claim/unclaim button
     setTimeout(() => {
       const btn = document.getElementById(`btn-${domId}`);
       if (!btn) return;
@@ -209,13 +162,11 @@ layer.bindTooltip(name, {
         } else {
           claimById(id);
         }
-
-        // close popup after action
-        map.closePopup();
+        map.closePopup(); // close after action
       };
     }, 0);
 
-    // reset on popup close
+    // Reset on popup close
     map.once("popupclose", () => {
       if (selectedCounty) {
         geojson.resetStyle(selectedCounty);
