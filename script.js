@@ -120,11 +120,12 @@ function onEachCounty(feature, layer) {
   const domId = sanitizeId(id);
 
   // Tooltip on hover
-  layer.bindTooltip(name, {
-    permanent: false,    // only on hover
-    direction: "center", // appears in the middle of the county
-    className: "county-tooltip"
-  });
+  const centroid = turf.centroid(feature).geometry.coordinates;
+layer.bindTooltip(name, {
+  permanent: true,
+  direction: "center",
+  className: "county-tooltip"
+}).setLatLng([centroid[1], centroid[0]]);
 
   // hover effect
   layer.on({
@@ -240,10 +241,3 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
-
-
-
-
-
-
-
