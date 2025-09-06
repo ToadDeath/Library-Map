@@ -168,18 +168,19 @@ function onEachCounty(feature, layer) {
     // force hover effect on active county
     highlightFeature({ target: layer });
 
-    // attach button handler
+   // attach button handler
     setTimeout(() => {
       const btn = document.getElementById(`btn-${domId}`);
       if (!btn) return;
       btn.onclick = () => {
         if (claimed[id]) {
           unclaimById(id);
-          btn.textContent = "Claim Library Card";
         } else {
           claimById(id);
-          btn.textContent = "Unclaim Library Card";
         }
+
+        // close popup after action
+        map.closePopup();
       };
     }, 0);
 
@@ -209,6 +210,7 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
 
 
