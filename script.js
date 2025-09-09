@@ -225,14 +225,14 @@ function resetHighlight(layer) {
   }
 }
 
-// Styles (different shades of blue)
+// Styles (different shades of blue for districts)
 const styleCounty = { color: "#1f77b4", weight: 1, fillOpacity: 0.4 };
 const styleLibrary = { color: "#2ca02c", weight: 1, fillOpacity: 0.4 };
 const styleMultiJurisdictional = { color: "#17becf", weight: 1, fillOpacity: 0.4 };
 const styleMunicipal = { color: "#7f7f7f", weight: 1, fillOpacity: 0.4 };
 const styleUnresolved = { color: "#aec7e8", weight: 1, fillOpacity: 0.4 };
 
-// Load layers
+// Load polygon layers
 const countyLayer = new L.GeoJSON.AJAX("County_Library_Districts_10x.geojson", {
   style: styleCounty,
   onEachFeature: onEachFeatureCommon
@@ -254,12 +254,49 @@ const unresolvedLayer = new L.GeoJSON.AJAX("Unresolved_Library_Service_Areas.geo
   onEachFeature: onEachFeatureCommon
 });
 
+// Load point layer for libraries
+const librariesLayer = new L.GeoJSON.AJAX("libraries.geojson", {
+  pointToLayer: (feature, latlng) => {
+    return L.circleMarker(latlng, {
+      radius: 6,
+      fillColor: "#ff7800",
+      color: "#fff",
+      weight: 1,
+      opacity: 1,
+      fillOpacity: 0.9
+    });
+  },
+  onEachFeature: (feature, layer) => {
+    const { name, address, website } = feature.properties;
+
+    // Tooltip for quick identification
+    layer.bindTooltip(name, {
+      permanent: false,
+      direction: "top",
+      className: "library-tooltip"
+    });
+
+    // Simple popup for now
+    layer.on("click", () => {
+      const popupContent = `
+        <div style="text-align:center;">
+          <strong>${name}</strong><br>
+          <a href="${website}" target="_blank">${website}</a><br>
+          <small>${address}</small>
+        </div>
+      `;
+      layer.bindPopup(popupContent).openPopup();
+    });
+  }
+});
+
 // Add all by default
 countyLayer.addTo(map);
 libraryLayer.addTo(map);
 multiLayer.addTo(map);
 municipalLayer.addTo(map);
 unresolvedLayer.addTo(map);
+librariesLayer.addTo(map);
 
 // Layer controls for toggling
 L.control.layers(null, {
@@ -267,7 +304,8 @@ L.control.layers(null, {
   "Library Districts": libraryLayer,
   "Multi-jurisdictional Districts": multiLayer,
   "Municipal Districts": municipalLayer,
-  "Unresolved Areas": unresolvedLayer
+  "Unresolved Areas": unresolvedLayer,
+  "Libraries": librariesLayer
 }).addTo(map);
 
 
@@ -283,8 +321,3 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
-
-
-
-
-
