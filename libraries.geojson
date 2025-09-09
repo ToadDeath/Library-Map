@@ -1,13 +1,18 @@
 {
-  "type": "Feature",
-  "properties": {
-    "name": "Loveland Public Library",
-    "address": "300 N Adams Ave, Loveland, CO 80537",
-    "website": "https://www.lovelandpubliclibrary.org/",
-    "district": "Some District Name"
-  },
-  "geometry": {
-    "type": "Point",
-    "coordinates": [-105.0746, 40.3978]
-  }
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Loveland Public Library",
+        "address": "300 N Adams Ave, Loveland, CO 80537",
+        "website": "https://www.lovelandpubliclibrary.org/",
+        "district": "Some District Name"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-105.0746, 40.3978]
+      }
+    }
+  ]
 }
