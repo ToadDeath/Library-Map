@@ -101,7 +101,7 @@ function refreshOne(id) {
 
 
 // ------------------ SECTION 6 - INTERACTION ------------------
-// Shared interaction logic for counties and libraries
+// Shared interaction logic for polygons (districts)
 function onEachFeatureCommon(feature, layer) {
   const id =
     feature.properties.CNTY_FIPS ||
@@ -125,82 +125,50 @@ function onEachFeatureCommon(feature, layer) {
     "Unknown Area";
 
   const domId = sanitizeId(id);
-
-  // Compute centroid for popup/tooltip placement
   const centroid = turf.centroid(feature).geometry.coordinates;
   const centerLatLng = [centroid[1], centroid[0]];
 
-  // Hover: show tooltip
+  // Hover tooltip
   layer.on("mouseover", () => {
-    if (map.hasLayer(activePopup)) return; // don’t show tooltip if popup is open
+    if (map.hasLayer(activePopup)) return;
     highlightFeature(layer);
-    layer
-      .bindTooltip(name, {
-        permanent: false,
-        direction: "center",
-        className: "county-tooltip"
-      })
-      .openTooltip(centerLatLng);
+    layer.bindTooltip(name, {
+      permanent: false,
+      direction: "center",
+      className: "county-tooltip"
+    }).openTooltip(centerLatLng);
   });
 
-  // Leave: reset style + remove tooltip
+  // Reset on mouseout
   layer.on("mouseout", () => {
     if (map.hasLayer(activePopup)) return;
     resetHighlight(layer);
     layer.closeTooltip();
   });
 
-  // Click: popup with claim/unclaim button
+  // Click → update sidebar
   layer.on("click", () => {
-    const isClaimed = !!claimed[id];
-    const btnLabel = isClaimed ? "Unclaim Library Card" : "Claim Library Card";
-
-    const popupContent = `
-      <div style="text-align:center;">
-        <strong>${name}</strong><br>
-        <button id="btn-${domId}" class="claim-btn">${btnLabel}</button>
-      </div>
+    const sidebar = document.getElementById("sidebar");
+    sidebar.innerHTML = `
+      <h2>${name}</h2>
+      <p>This is a library district polygon.</p>
     `;
-
-    // Reset previously selected feature
-    if (selectedCounty && selectedCounty !== layer) {
-      resetHighlight(selectedCounty);
-    }
-
-    activePopup.setLatLng(centerLatLng).setContent(popupContent).openOn(map);
+    sidebar.style.display = "block";
 
     highlightFeature(layer);
     selectedCounty = layer;
-
-    setTimeout(() => {
-      const btn = document.getElementById(`btn-${domId}`);
-      if (!btn) return;
-      btn.onclick = () => {
-        if (claimed[id]) {
-          unclaimById(id);
-        } else {
-          claimById(id);
-        }
-        map.closePopup();
-      };
-    }, 0);
-
-    map.once("popupclose", () => {
-      if (selectedCounty) {
-        resetHighlight(selectedCounty);
-        selectedCounty = null;
-      }
-    });
   });
 }
 
 // Highlight / reset logic
 function highlightFeature(layer) {
-  layer.setStyle({
-    weight: 4,
-    color: "#333",
-    fillOpacity: 0.9
-  });
+  if (layer.setStyle) {
+    layer.setStyle({
+      weight: 4,
+      color: "#333",
+      fillOpacity: 0.9
+    });
+  }
   if (layer._path) {
     layer._path.classList.add("leaflet-shadow");
   }
@@ -210,16 +178,13 @@ function highlightFeature(layer) {
 }
 
 function resetHighlight(layer) {
-  if (selectedCounty === layer) return; // don’t reset if active
-
-  // Use the correct parent GeoJSON layer to reset style
+  if (selectedCounty === layer) return;
   const parent =
     layer.__parent ||
     (layer._eventParents && Object.values(layer._eventParents)[0]);
   if (parent && parent.resetStyle) {
     parent.resetStyle(layer);
   }
-
   if (layer._path) {
     layer._path.classList.remove("leaflet-shadow");
   }
@@ -232,7 +197,7 @@ const styleMultiJurisdictional = { color: "#17becf", weight: 1, fillOpacity: 0.4
 const styleMunicipal = { color: "#7f7f7f", weight: 1, fillOpacity: 0.4 };
 const styleUnresolved = { color: "#aec7e8", weight: 1, fillOpacity: 0.4 };
 
-// Load polygon layers
+// Polygon layers
 const countyLayer = new L.GeoJSON.AJAX("County_Library_Districts_10x.geojson", {
   style: styleCounty,
   onEachFeature: onEachFeatureCommon
@@ -254,7 +219,7 @@ const unresolvedLayer = new L.GeoJSON.AJAX("Unresolved_Library_Service_Areas.geo
   onEachFeature: onEachFeatureCommon
 });
 
-// Load point layer for libraries
+// Library points
 const librariesLayer = new L.GeoJSON.AJAX("libraries.geojson", {
   pointToLayer: (feature, latlng) => {
     return L.circleMarker(latlng, {
@@ -269,23 +234,22 @@ const librariesLayer = new L.GeoJSON.AJAX("libraries.geojson", {
   onEachFeature: (feature, layer) => {
     const { name, address, website } = feature.properties;
 
-    // Tooltip for quick identification
     layer.bindTooltip(name, {
       permanent: false,
       direction: "top",
       className: "library-tooltip"
     });
 
-    // Simple popup for now
+    // Click → update sidebar
     layer.on("click", () => {
-      const popupContent = `
-        <div style="text-align:center;">
-          <strong>${name}</strong><br>
-          <a href="${website}" target="_blank">${website}</a><br>
-          <small>${address}</small>
-        </div>
+      const sidebar = document.getElementById("sidebar");
+      sidebar.innerHTML = `
+        <h2>${name}</h2>
+        <p><a href="${website}" target="_blank">${website}</a></p>
+        <p>${address}</p>
+        <button class="claim-btn">Claim Library Card</button>
       `;
-      layer.bindPopup(popupContent).openPopup();
+      sidebar.style.display = "block";
     });
   }
 });
@@ -298,7 +262,7 @@ municipalLayer.addTo(map);
 unresolvedLayer.addTo(map);
 librariesLayer.addTo(map);
 
-// Layer controls for toggling
+// Layer controls
 L.control.layers(null, {
   "County Library Districts": countyLayer,
   "Library Districts": libraryLayer,
@@ -321,3 +285,4 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
