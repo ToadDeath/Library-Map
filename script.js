@@ -101,35 +101,56 @@ function refreshOne(id) {
 
 
 // ------------------ SECTION 6 - INTERACTION ------------------
-// Shared interaction logic for libraries
-function onEachLibrary(feature, layer) {
-  const id = feature.properties.OBJECTID || feature.properties.FID || feature.properties.id || feature.properties.lgid;
-  const name = feature.properties.NAME || feature.properties.NAMES2 || feature.properties.lgname || feature.properties.NAMELC || feature.properties.name;
+// Shared interaction logic for counties and libraries
+function onEachFeatureCommon(feature, layer) {
+  const id =
+    feature.properties.CNTY_FIPS ||
+    feature.properties.US_FIPS ||
+    feature.properties.FIPS ||
+    feature.properties.FULL ||
+    feature.properties.OBJECTID ||
+    feature.properties.FID ||
+    feature.properties.id ||
+    feature.properties.lgid;
+
+  const name =
+    feature.properties.FULL ||
+    feature.properties.COUNTY ||
+    feature.properties.LABEL ||
+    feature.properties.NAME ||
+    feature.properties.NAMES2 ||
+    feature.properties.lgname ||
+    feature.properties.NAMELC ||
+    feature.properties.name ||
+    "Unknown Area";
+
   const domId = sanitizeId(id);
 
-  // Compute centroid with Turf
+  // Compute centroid for popup/tooltip placement
   const centroid = turf.centroid(feature).geometry.coordinates;
   const centerLatLng = [centroid[1], centroid[0]];
 
-  // Hover: show tooltip at centroid (only if no popup is open)
+  // Hover: show tooltip
   layer.on("mouseover", () => {
     if (map.hasLayer(activePopup)) return; // don’t show tooltip if popup is open
     highlightFeature(layer);
-    layer.bindTooltip(name, {
-      permanent: false,
-      direction: "center",
-      className: "county-tooltip"
-    }).openTooltip(centerLatLng);
+    layer
+      .bindTooltip(name, {
+        permanent: false,
+        direction: "center",
+        className: "county-tooltip"
+      })
+      .openTooltip(centerLatLng);
   });
 
-  // Leave: remove tooltip + reset style
+  // Leave: reset style + remove tooltip
   layer.on("mouseout", () => {
     if (map.hasLayer(activePopup)) return;
     resetHighlight(layer);
     layer.closeTooltip();
   });
 
-  // Click: open popup at centroid
+  // Click: popup with claim/unclaim button
   layer.on("click", () => {
     const isClaimed = !!claimed[id];
     const btnLabel = isClaimed ? "Unclaim Library Card" : "Claim Library Card";
@@ -141,12 +162,9 @@ function onEachLibrary(feature, layer) {
       </div>
     `;
 
+    // Reset previously selected feature
     if (selectedCounty && selectedCounty !== layer) {
-      // Reset previous
-      selectedCounty.setStyle({ weight: 1, color: "#3388ff", fillOpacity: 0.5 });
-      if (selectedCounty._path) {
-        selectedCounty._path.classList.remove("leaflet-shadow");
-      }
+      resetHighlight(selectedCounty);
     }
 
     activePopup.setLatLng(centerLatLng).setContent(popupContent).openOn(map);
@@ -170,18 +188,46 @@ function onEachLibrary(feature, layer) {
     map.once("popupclose", () => {
       if (selectedCounty) {
         resetHighlight(selectedCounty);
-        if (selectedCounty._path) {
-          selectedCounty._path.classList.remove("leaflet-shadow");
-        }
         selectedCounty = null;
       }
     });
   });
 }
 
+// Highlight / reset logic
+function highlightFeature(layer) {
+  layer.setStyle({
+    weight: 4,
+    color: "#333",
+    fillOpacity: 0.9
+  });
+  if (layer._path) {
+    layer._path.classList.add("leaflet-shadow");
+  }
+  if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+    layer.bringToFront();
+  }
+}
+
+function resetHighlight(layer) {
+  if (selectedCounty === layer) return; // don’t reset if active
+
+  // Use the correct parent GeoJSON layer to reset style
+  const parent =
+    layer.__parent ||
+    (layer._eventParents && Object.values(layer._eventParents)[0]);
+  if (parent && parent.resetStyle) {
+    parent.resetStyle(layer);
+  }
+
+  if (layer._path) {
+    layer._path.classList.remove("leaflet-shadow");
+  }
+}
+
 // Styles (different shades of blue)
 const styleCounty = { color: "#1f77b4", weight: 1, fillOpacity: 0.4 };
-const styleLibrary = { color: "#2ca02c", weight: 1, fillOpacity: 0.4 }; // greenish blue
+const styleLibrary = { color: "#2ca02c", weight: 1, fillOpacity: 0.4 };
 const styleMultiJurisdictional = { color: "#17becf", weight: 1, fillOpacity: 0.4 };
 const styleMunicipal = { color: "#7f7f7f", weight: 1, fillOpacity: 0.4 };
 const styleUnresolved = { color: "#aec7e8", weight: 1, fillOpacity: 0.4 };
@@ -189,23 +235,23 @@ const styleUnresolved = { color: "#aec7e8", weight: 1, fillOpacity: 0.4 };
 // Load layers
 const countyLayer = new L.GeoJSON.AJAX("County_Library_Districts_10x.geojson", {
   style: styleCounty,
-  onEachFeature: onEachLibrary
+  onEachFeature: onEachFeatureCommon
 });
 const libraryLayer = new L.GeoJSON.AJAX("Library_Districts_10x.geojson", {
   style: styleLibrary,
-  onEachFeature: onEachLibrary
+  onEachFeature: onEachFeatureCommon
 });
 const multiLayer = new L.GeoJSON.AJAX("Multi-jurisdictional_Library_Districts_20x.geojson", {
   style: styleMultiJurisdictional,
-  onEachFeature: onEachLibrary
+  onEachFeature: onEachFeatureCommon
 });
 const municipalLayer = new L.GeoJSON.AJAX("Municipal_Library_Districts_10x.geojson", {
   style: styleMunicipal,
-  onEachFeature: onEachLibrary
+  onEachFeature: onEachFeatureCommon
 });
 const unresolvedLayer = new L.GeoJSON.AJAX("Unresolved_Library_Service_Areas.geojson", {
   style: styleUnresolved,
-  onEachFeature: onEachLibrary
+  onEachFeature: onEachFeatureCommon
 });
 
 // Add all by default
@@ -237,6 +283,7 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
 
 
