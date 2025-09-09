@@ -101,9 +101,10 @@ function refreshOne(id) {
 
 
 // ------------------ SECTION 6 - INTERACTION ------------------
-function onEachCounty(feature, layer) {
-  const id = getCountyId(feature);
-  const name = getCountyName(feature);
+// Shared interaction logic for libraries
+function onEachLibrary(feature, layer) {
+  const id = feature.properties.OBJECTID || feature.properties.FID || feature.properties.id || feature.properties.lgid;
+  const name = feature.properties.NAME || feature.properties.NAMES2 || feature.properties.lgname || feature.properties.NAMELC || feature.properties.name;
   const domId = sanitizeId(id);
 
   // Compute centroid with Turf
@@ -123,7 +124,7 @@ function onEachCounty(feature, layer) {
 
   // Leave: remove tooltip + reset style
   layer.on("mouseout", () => {
-    if (map.hasLayer(activePopup)) return; // don’t interfere with popup
+    if (map.hasLayer(activePopup)) return;
     resetHighlight(layer);
     layer.closeTooltip();
   });
@@ -140,22 +141,19 @@ function onEachCounty(feature, layer) {
       </div>
     `;
 
-    // Reset previously selected county
     if (selectedCounty && selectedCounty !== layer) {
-      geojson.resetStyle(selectedCounty);
+      // Reset previous
+      selectedCounty.setStyle({ weight: 1, color: "#3388ff", fillOpacity: 0.5 });
       if (selectedCounty._path) {
         selectedCounty._path.classList.remove("leaflet-shadow");
       }
     }
 
-    // Open popup at centroid
     activePopup.setLatLng(centerLatLng).setContent(popupContent).openOn(map);
 
-    // Highlight this county
     highlightFeature(layer);
     selectedCounty = layer;
 
-    // Add button click behavior
     setTimeout(() => {
       const btn = document.getElementById(`btn-${domId}`);
       if (!btn) return;
@@ -169,10 +167,9 @@ function onEachCounty(feature, layer) {
       };
     }, 0);
 
-    // Reset when popup closes
     map.once("popupclose", () => {
       if (selectedCounty) {
-        geojson.resetStyle(selectedCounty);
+        resetHighlight(selectedCounty);
         if (selectedCounty._path) {
           selectedCounty._path.classList.remove("leaflet-shadow");
         }
@@ -181,6 +178,51 @@ function onEachCounty(feature, layer) {
     });
   });
 }
+
+// Styles (different shades of blue)
+const styleCounty = { color: "#1f77b4", weight: 1, fillOpacity: 0.4 };
+const styleLibrary = { color: "#2ca02c", weight: 1, fillOpacity: 0.4 }; // greenish blue
+const styleMultiJurisdictional = { color: "#17becf", weight: 1, fillOpacity: 0.4 };
+const styleMunicipal = { color: "#7f7f7f", weight: 1, fillOpacity: 0.4 };
+const styleUnresolved = { color: "#aec7e8", weight: 1, fillOpacity: 0.4 };
+
+// Load layers
+const countyLayer = new L.GeoJSON.AJAX("County_Library_Districts_10x.geojson", {
+  style: styleCounty,
+  onEachFeature: onEachLibrary
+});
+const libraryLayer = new L.GeoJSON.AJAX("Library_Districts_10x.geojson", {
+  style: styleLibrary,
+  onEachFeature: onEachLibrary
+});
+const multiLayer = new L.GeoJSON.AJAX("Multi-jurisdictional_Library_Districts_20x.geojson", {
+  style: styleMultiJurisdictional,
+  onEachFeature: onEachLibrary
+});
+const municipalLayer = new L.GeoJSON.AJAX("Municipal_Library_Districts_10x.geojson", {
+  style: styleMunicipal,
+  onEachFeature: onEachLibrary
+});
+const unresolvedLayer = new L.GeoJSON.AJAX("Unresolved_Library_Service_Areas.geojson", {
+  style: styleUnresolved,
+  onEachFeature: onEachLibrary
+});
+
+// Add all by default
+countyLayer.addTo(map);
+libraryLayer.addTo(map);
+multiLayer.addTo(map);
+municipalLayer.addTo(map);
+unresolvedLayer.addTo(map);
+
+// Layer controls for toggling
+L.control.layers(null, {
+  "County Library Districts": countyLayer,
+  "Library Districts": libraryLayer,
+  "Multi-jurisdictional Districts": multiLayer,
+  "Municipal Districts": municipalLayer,
+  "Unresolved Areas": unresolvedLayer
+}).addTo(map);
 
 
 // ------------------ SECTION 7 - LOAD GEOJSON ------------------
@@ -195,6 +237,7 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
 
 
