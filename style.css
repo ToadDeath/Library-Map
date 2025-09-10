@@ -113,3 +113,8 @@ html, body {
 .hover-highlight {
   filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.6));
 }
+
+/* Hover highlight for polygons */
+.hover-highlight {
+  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.6));
+}
