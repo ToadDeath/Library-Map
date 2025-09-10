@@ -15,20 +15,11 @@
   <!-- MAP CONTAINER -->
   <div id="map"></div>
 
-<!-- SIDEBAR -->
-<div id="sidebar" style="
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 300px;
-  height: 100%;
-  background: #fff;
-  overflow-y: auto;
-  padding: 10px;
-  border-left: 1px solid #ccc;
-  display: none;
-  z-index: 1000;
-"></div>
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <h2 id="sidebar-title">Select a district</h2>
+    <div id="sidebar-content"></div>
+  </div>
 
   <!-- Turf.js -->
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
@@ -43,4 +34,3 @@
   <script src="script.js"></script>
 </body>
 </html>
-
