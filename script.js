@@ -146,12 +146,40 @@ function onEachFeatureCommon(feature, layer) {
     layer.closeTooltip();
   });
 
-  // Click → update sidebar
+  // Click → update sidebar with libraries inside the polygon
   layer.on("click", () => {
     const sidebar = document.getElementById("sidebar");
+
+    const districtPolygon = feature; // the clicked polygon
+    const librariesInDistrict = [];
+
+    librariesLayer.eachLayer(l => {
+      if (!l.feature) return;
+      const libPoint = l.feature; // GeoJSON Point
+      if (turf.booleanPointInPolygon(libPoint, districtPolygon)) {
+        librariesInDistrict.push(libPoint.properties);
+      }
+    });
+
+    // Build HTML list
+    let libraryListHtml = "";
+    if (librariesInDistrict.length > 0) {
+      libraryListHtml = librariesInDistrict.map(lib => `
+        <div class="library-entry">
+          <h3>${lib.name}</h3>
+          <p><a href="${lib.website}" target="_blank">${lib.website}</a></p>
+          <p>${lib.address}</p>
+          <button class="claim-btn">Claim Library Card</button>
+        </div>
+      `).join("");
+    } else {
+      libraryListHtml = "<p>No libraries found in this district.</p>";
+    }
+
+    // Update sidebar
     sidebar.innerHTML = `
       <h2>${name}</h2>
-      <p>This is a library district polygon.</p>
+      ${libraryListHtml}
     `;
     sidebar.style.display = "block";
 
@@ -227,7 +255,7 @@ const librariesLayer = new L.GeoJSON.AJAX("libraries.geojson", {
     });
   },
   onEachFeature: (feature, layer) => {
-    const { name, address, website } = feature.properties;
+    const { name } = feature.properties;
 
     layer.bindTooltip(name, {
       permanent: false,
@@ -235,9 +263,10 @@ const librariesLayer = new L.GeoJSON.AJAX("libraries.geojson", {
       className: "library-tooltip"
     });
 
-    // Click → update sidebar
+    // Optional: library point click updates sidebar too
     layer.on("click", () => {
       const sidebar = document.getElementById("sidebar");
+      const { name, address, website } = feature.properties;
       sidebar.innerHTML = `
         <h2>${name}</h2>
         <p><a href="${website}" target="_blank">${website}</a></p>
@@ -280,6 +309,7 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
 
 
