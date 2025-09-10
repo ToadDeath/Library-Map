@@ -12,6 +12,7 @@ html, body {
   background-color: #1e1e1e; /* match page background */
 }
 
+/* Popup button styling */
 .leaflet-popup-content button {
   background: #4CAF50;
   color: white;
@@ -27,23 +28,18 @@ html, body {
   background: #45a049;
 }
 
-/* Shadow filter for hovered counties */
-.leaflet-shadow {
-  filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.5));
-}
-
 .leaflet-popup-content {
   text-align: center;
 }
 
 .claim-btn {
-  width: 160px;       
-  text-align: center; 
+  width: 160px;
+  text-align: center;
 }
 
 .custom-popup {
   text-align: center;
-  width: 220px; 
+  width: 220px;
 }
 
 .custom-popup .leaflet-popup-content {
@@ -56,6 +52,7 @@ html, body {
   padding: 10px;
 }
 
+/* Tooltip styling */
 .leaflet-tooltip.county-tooltip {
   background: rgba(0, 0, 0, 0.75);
   color: white;
@@ -73,5 +70,46 @@ html, body {
   box-shadow: none !important;
   color: white !important;
   font-weight: bold;
-  text-shadow: 1px 1px 2px black; /* makes white text readable */
+  text-shadow: 1px 1px 2px black; /* improves readability */
+}
+
+/* District fill styles (pastel blues, white borders) */
+.county-district {
+  fill: #a2cffe;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+  fill-opacity: 0.7;
+}
+
+.library-district {
+  fill: #cdeaff;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+  fill-opacity: 0.7;
+}
+
+.multi-district {
+  fill: #89cff0;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+  fill-opacity: 0.7;
+}
+
+.municipal-district {
+  fill: #b5d9ff;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+  fill-opacity: 0.7;
+}
+
+.unresolved-district {
+  fill: #d6ecff;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+  fill-opacity: 0.7;
+}
+
+/* Hover highlight effect for district borders */
+.hover-highlight {
+  filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.6));
 }
