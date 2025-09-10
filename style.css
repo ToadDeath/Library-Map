@@ -4,12 +4,43 @@ html, body {
   height: 100%;
   background-color: #1e1e1e; /* dark gray page background */
   color: white; /* default text color */
+  font-family: Arial, sans-serif;
 }
 
 #map {
   width: 100%;
   height: 100vh;
   background-color: #1e1e1e; /* match page background */
+}
+
+/* Sidebar styling */
+#sidebar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 100%;
+  background: #2c2c2c; /* darker panel background */
+  color: #f5f5f5;
+  overflow-y: auto;
+  padding: 15px;
+  border-left: 2px solid #444;
+  display: none; /* hidden until a district is clicked */
+  z-index: 1000;
+}
+
+#sidebar h2 {
+  font-size: 18px;
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #ffffff;
+  border-bottom: 1px solid #555;
+  padding-bottom: 6px;
+}
+
+#sidebar-content {
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 /* Popup button styling */
@@ -110,11 +141,6 @@ html, body {
 }
 
 /* Hover highlight effect for district borders */
-.hover-highlight {
-  filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.6));
-}
-
-/* Hover highlight for polygons */
 .hover-highlight {
   filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.6));
 }
