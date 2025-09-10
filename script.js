@@ -162,15 +162,8 @@ function onEachFeatureCommon(feature, layer) {
 
 // Highlight / reset logic
 function highlightFeature(layer) {
-  if (layer.setStyle) {
-    layer.setStyle({
-      weight: 4,
-      color: "#333",
-      fillOpacity: 0.9
-    });
-  }
   if (layer._path) {
-    layer._path.classList.add("leaflet-shadow");
+    layer._path.classList.add("hover-highlight");
   }
   if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
     layer.bringToFront();
@@ -178,24 +171,26 @@ function highlightFeature(layer) {
 }
 
 function resetHighlight(layer) {
-  if (selectedCounty === layer) return;
+  if (selectedCounty === layer) return; // don’t reset if active
+
   const parent =
     layer.__parent ||
     (layer._eventParents && Object.values(layer._eventParents)[0]);
   if (parent && parent.resetStyle) {
     parent.resetStyle(layer);
   }
+
   if (layer._path) {
-    layer._path.classList.remove("leaflet-shadow");
+    layer._path.classList.remove("hover-highlight");
   }
 }
 
-// Styles (different shades of blue for districts)
-const styleCounty = { color: "#1f77b4", weight: 1, fillOpacity: 0.4 };
-const styleLibrary = { color: "#2ca02c", weight: 1, fillOpacity: 0.4 };
-const styleMultiJurisdictional = { color: "#17becf", weight: 1, fillOpacity: 0.4 };
-const styleMunicipal = { color: "#7f7f7f", weight: 1, fillOpacity: 0.4 };
-const styleUnresolved = { color: "#aec7e8", weight: 1, fillOpacity: 0.4 };
+// Pastel blue fills with white borders
+const styleCounty = { color: "#ffffff", weight: 2, fillColor: "#cfe2f3", fillOpacity: 0.7 };
+const styleLibrary = { color: "#ffffff", weight: 2, fillColor: "#a4c2f4", fillOpacity: 0.7 };
+const styleMultiJurisdictional = { color: "#ffffff", weight: 2, fillColor: "#9fc5e8", fillOpacity: 0.7 };
+const styleMunicipal = { color: "#ffffff", weight: 2, fillColor: "#b4c7e7", fillOpacity: 0.7 };
+const styleUnresolved = { color: "#ffffff", weight: 2, fillColor: "#d9e1f2", fillOpacity: 0.7 };
 
 // Polygon layers
 const countyLayer = new L.GeoJSON.AJAX("County_Library_Districts_10x.geojson", {
@@ -285,4 +280,5 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
