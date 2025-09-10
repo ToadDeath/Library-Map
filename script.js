@@ -164,12 +164,12 @@ function onEachFeatureCommon(feature, layer) {
     // Build HTML list
     let libraryListHtml = "";
     if (librariesInDistrict.length > 0) {
-      libraryListHtml = librariesInDistrict.map(lib => `
-        <div class="library-entry">
+      libraryListHtml = librariesInDistrict.map((lib, idx) => `
+        <div class="library-entry" data-lib-id="${sanitizeId(lib.name)}">
           <h3>${lib.name}</h3>
           <p><a href="${lib.website}" target="_blank">${lib.website}</a></p>
           <p>${lib.address}</p>
-          <button class="claim-btn">Claim Library Card</button>
+          <button class="claim-btn" data-lib-id="${sanitizeId(lib.name)}">Claim Library Card</button>
         </div>
       `).join("");
     } else {
@@ -178,10 +178,28 @@ function onEachFeatureCommon(feature, layer) {
 
     // Update sidebar
     sidebar.innerHTML = `
-      <h2>${name}</h2>
-      ${libraryListHtml}
+      <h2 id="sidebar-title">${name}</h2>
+      <div id="sidebar-content">${libraryListHtml}</div>
     `;
     sidebar.style.display = "block";
+
+    // Add claim/unclaim button logic
+    document.querySelectorAll(".claim-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const libId = btn.getAttribute("data-lib-id");
+        const entry = document.querySelector(\`.library-entry[data-lib-id="\${libId}"]\`);
+
+        if (entry.classList.contains("claimed")) {
+          // Unclaim
+          entry.classList.remove("claimed");
+          btn.textContent = "Claim Library Card";
+        } else {
+          // Claim
+          entry.classList.add("claimed");
+          btn.textContent = "Library Card Owned";
+        }
+      });
+    });
 
     highlightFeature(layer);
     selectedCounty = layer;
@@ -213,7 +231,7 @@ function resetHighlight(layer) {
   }
 }
 
-// Pastel blue fills with white borders
+// Styles for district polygons
 const styleCounty = { color: "#ffffff", weight: 2, fillColor: "#cfe2f3", fillOpacity: 0.7 };
 const styleLibrary = { color: "#ffffff", weight: 2, fillColor: "#a4c2f4", fillOpacity: 0.7 };
 const styleMultiJurisdictional = { color: "#ffffff", weight: 2, fillColor: "#9fc5e8", fillOpacity: 0.7 };
@@ -255,7 +273,7 @@ const librariesLayer = new L.GeoJSON.AJAX("libraries.geojson", {
     });
   },
   onEachFeature: (feature, layer) => {
-    const { name } = feature.properties;
+    const { name, address, website } = feature.properties;
 
     layer.bindTooltip(name, {
       permanent: false,
@@ -266,14 +284,26 @@ const librariesLayer = new L.GeoJSON.AJAX("libraries.geojson", {
     // Optional: library point click updates sidebar too
     layer.on("click", () => {
       const sidebar = document.getElementById("sidebar");
-      const { name, address, website } = feature.properties;
       sidebar.innerHTML = `
         <h2>${name}</h2>
         <p><a href="${website}" target="_blank">${website}</a></p>
         <p>${address}</p>
-        <button class="claim-btn">Claim Library Card</button>
+        <button class="claim-btn" data-lib-id="${sanitizeId(name)}">Claim Library Card</button>
       `;
       sidebar.style.display = "block";
+
+      // Wire up claim button toggle for direct library click
+      const btn = sidebar.querySelector(".claim-btn");
+      btn.addEventListener("click", () => {
+        const entry = btn.closest(".library-entry") || btn.parentElement;
+        if (entry.classList.contains("claimed")) {
+          entry.classList.remove("claimed");
+          btn.textContent = "Claim Library Card";
+        } else {
+          entry.classList.add("claimed");
+          btn.textContent = "Library Card Owned";
+        }
+      });
     });
   }
 });
@@ -309,6 +339,7 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
 
 
