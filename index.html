@@ -8,8 +8,34 @@
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 
-  <!-- Your CSS -->
-  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Reset */
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
+    /* Map fills the screen */
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+
+    /* Sidebar */
+    #sidebar {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 300px;
+      height: 100%;
+      background: #fff;
+      overflow-y: auto;
+      padding: 10px;
+      border-left: 1px solid #ccc;
+      display: none; /* Hidden until a district is clicked */
+      z-index: 1000;
+    }
+  </style>
 </head>
 <body>
   <!-- MAP CONTAINER -->
@@ -27,10 +53,40 @@
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-  <!-- Leaflet AJAX (needed for L.GeoJSON.AJAX) -->
+  <!-- Leaflet AJAX -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-ajax/2.1.0/leaflet.ajax.min.js"></script>
 
-  <!-- Your Script -->
-  <script src="script.js"></script>
+  <script>
+    // Initialize map
+    const map = L.map('map').setView([39, -105.5], 7); // Colorado-ish
+
+    // Add basemap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // Load GeoJSON (replace with your own .geojson path)
+    const districts = new L.GeoJSON.AJAX("districts.geojson", {
+      onEachFeature: function (feature, layer) {
+        layer.on("click", function () {
+          // Show sidebar
+          document.getElementById("sidebar").style.display = "block";
+
+          // Update content
+          document.getElementById("sidebar-title").textContent = feature.properties.NAME || "District";
+          document.getElementById("sidebar-content").innerHTML = `
+            <p><strong>ID:</strong> ${feature.properties.ID || "N/A"}</p>
+            <p><strong>Other Info:</strong> ${feature.properties.INFO || "N/A"}</p>
+          `;
+        });
+      },
+      style: {
+        color: "blue",
+        weight: 2,
+        fillOpacity: 0.2
+      }
+    }).addTo(map);
+  </script>
 </body>
 </html>
