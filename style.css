@@ -21,7 +21,7 @@ html, body {
   width: 300px;
   height: 100%;
   background: #2c2c2c; /* darker panel background */
-  color: #f5f5f5;
+  color: #2b2b2b;
   overflow-y: auto;
   padding: 15px;
   border-left: 2px solid #444;
@@ -144,3 +144,4 @@ html, body {
 .hover-highlight {
   filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.6));
 }
+
