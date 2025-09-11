@@ -101,18 +101,14 @@ function refreshOne(id) {
 
 
 // ------------------ SECTION 6 - INTERACTION ------------------
-// Shared interaction logic for polygons (districts)
-function onEachFeatureCommon(feature, layer) {
-  const id =
-    feature.properties.CNTY_FIPS ||
-    feature.properties.US_FIPS ||
-    feature.properties.FIPS ||
-    feature.properties.FULL ||
-    feature.properties.OBJECTID ||
-    feature.properties.FID ||
-    feature.properties.id ||
-    feature.properties.lgid;
+let selectedCounty = null;
+let activePopup = null;
 
+function sanitizeId(str) {
+  return str.toString().replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+function onEachFeatureCommon(feature, layer) {
   const name =
     feature.properties.FULL ||
     feature.properties.COUNTY ||
@@ -124,24 +120,17 @@ function onEachFeatureCommon(feature, layer) {
     feature.properties.name ||
     "Unknown Area";
 
-  const domId = sanitizeId(id);
-  const centroid = turf.centroid(feature).geometry.coordinates;
-  const centerLatLng = [centroid[1], centroid[0]];
-
   // Hover tooltip
   layer.on("mouseover", () => {
-    if (map.hasLayer(activePopup)) return;
     highlightFeature(layer);
     layer.bindTooltip(name, {
       permanent: false,
       direction: "center",
       className: "county-tooltip"
-    }).openTooltip(centerLatLng);
+    }).openTooltip();
   });
 
-  // Reset on mouseout
   layer.on("mouseout", () => {
-    if (map.hasLayer(activePopup)) return;
     resetHighlight(layer);
     layer.closeTooltip();
   });
@@ -149,22 +138,18 @@ function onEachFeatureCommon(feature, layer) {
   // Click → update sidebar with libraries inside the polygon
   layer.on("click", () => {
     const sidebar = document.getElementById("sidebar");
-
-    const districtPolygon = feature; // the clicked polygon
     const librariesInDistrict = [];
 
     librariesLayer.eachLayer(l => {
       if (!l.feature) return;
-      const libPoint = l.feature; // GeoJSON Point
-      if (turf.booleanPointInPolygon(libPoint, districtPolygon)) {
-        librariesInDistrict.push(libPoint.properties);
+      if (turf.booleanPointInPolygon(l.feature, feature)) {
+        librariesInDistrict.push(l.feature.properties);
       }
     });
 
-    // Build HTML list
     let libraryListHtml = "";
     if (librariesInDistrict.length > 0) {
-      libraryListHtml = librariesInDistrict.map((lib, idx) => `
+      libraryListHtml = librariesInDistrict.map(lib => `
         <div class="library-entry" data-lib-id="${sanitizeId(lib.name)}">
           <h3>${lib.name}</h3>
           <p><a href="${lib.website}" target="_blank">${lib.website}</a></p>
@@ -176,28 +161,21 @@ function onEachFeatureCommon(feature, layer) {
       libraryListHtml = "<p>No libraries found in this district.</p>";
     }
 
-    // Update sidebar
     sidebar.innerHTML = `
       <h2 id="sidebar-title">${name}</h2>
       <div id="sidebar-content">${libraryListHtml}</div>
     `;
     sidebar.style.display = "block";
 
-    // Add claim/unclaim button logic
+    // Toggle claim button logic
     document.querySelectorAll(".claim-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const libId = btn.getAttribute("data-lib-id");
         const entry = document.querySelector(\`.library-entry[data-lib-id="\${libId}"]\`);
-
-        if (entry.classList.contains("claimed")) {
-          // Unclaim
-          entry.classList.remove("claimed");
-          btn.textContent = "Claim Library Card";
-        } else {
-          // Claim
-          entry.classList.add("claimed");
-          btn.textContent = "Library Card Owned";
-        }
+        entry.classList.toggle("claimed");
+        btn.textContent = entry.classList.contains("claimed")
+          ? "Library Card Owned"
+          : "Claim Library Card";
       });
     });
 
@@ -206,125 +184,17 @@ function onEachFeatureCommon(feature, layer) {
   });
 }
 
-// Highlight / reset logic
 function highlightFeature(layer) {
-  if (layer._path) {
-    layer._path.classList.add("hover-highlight");
-  }
-  if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-    layer.bringToFront();
-  }
+  if (layer._path) layer._path.classList.add("hover-highlight");
+  if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) layer.bringToFront();
 }
 
 function resetHighlight(layer) {
-  if (selectedCounty === layer) return; // don’t reset if active
-
-  const parent =
-    layer.__parent ||
-    (layer._eventParents && Object.values(layer._eventParents)[0]);
-  if (parent && parent.resetStyle) {
-    parent.resetStyle(layer);
-  }
-
-  if (layer._path) {
-    layer._path.classList.remove("hover-highlight");
-  }
+  if (selectedCounty === layer) return;
+  const parent = layer._eventParents ? Object.values(layer._eventParents)[0] : null;
+  if (parent && parent.resetStyle) parent.resetStyle(layer);
+  if (layer._path) layer._path.classList.remove("hover-highlight");
 }
-
-// Styles for district polygons
-const styleCounty = { color: "#ffffff", weight: 2, fillColor: "#cfe2f3", fillOpacity: 0.7 };
-const styleLibrary = { color: "#ffffff", weight: 2, fillColor: "#a4c2f4", fillOpacity: 0.7 };
-const styleMultiJurisdictional = { color: "#ffffff", weight: 2, fillColor: "#9fc5e8", fillOpacity: 0.7 };
-const styleMunicipal = { color: "#ffffff", weight: 2, fillColor: "#b4c7e7", fillOpacity: 0.7 };
-const styleUnresolved = { color: "#ffffff", weight: 2, fillColor: "#d9e1f2", fillOpacity: 0.7 };
-
-// Polygon layers
-const countyLayer = new L.GeoJSON.AJAX("County_Library_Districts_10x.geojson", {
-  style: styleCounty,
-  onEachFeature: onEachFeatureCommon
-});
-const libraryLayer = new L.GeoJSON.AJAX("Library_Districts_10x.geojson", {
-  style: styleLibrary,
-  onEachFeature: onEachFeatureCommon
-});
-const multiLayer = new L.GeoJSON.AJAX("Multi-jurisdictional_Library_Districts_20x.geojson", {
-  style: styleMultiJurisdictional,
-  onEachFeature: onEachFeatureCommon
-});
-const municipalLayer = new L.GeoJSON.AJAX("Municipal_Library_Districts_10x.geojson", {
-  style: styleMunicipal,
-  onEachFeature: onEachFeatureCommon
-});
-const unresolvedLayer = new L.GeoJSON.AJAX("Unresolved_Library_Service_Areas.geojson", {
-  style: styleUnresolved,
-  onEachFeature: onEachFeatureCommon
-});
-
-// Library points
-const librariesLayer = new L.GeoJSON.AJAX("libraries.geojson", {
-  pointToLayer: (feature, latlng) => {
-    return L.circleMarker(latlng, {
-      radius: 6,
-      fillColor: "#ff7800",
-      color: "#fff",
-      weight: 1,
-      opacity: 1,
-      fillOpacity: 0.9
-    });
-  },
-  onEachFeature: (feature, layer) => {
-    const { name, address, website } = feature.properties;
-
-    layer.bindTooltip(name, {
-      permanent: false,
-      direction: "top",
-      className: "library-tooltip"
-    });
-
-    // Optional: library point click updates sidebar too
-    layer.on("click", () => {
-      const sidebar = document.getElementById("sidebar");
-      sidebar.innerHTML = `
-        <h2>${name}</h2>
-        <p><a href="${website}" target="_blank">${website}</a></p>
-        <p>${address}</p>
-        <button class="claim-btn" data-lib-id="${sanitizeId(name)}">Claim Library Card</button>
-      `;
-      sidebar.style.display = "block";
-
-      // Wire up claim button toggle for direct library click
-      const btn = sidebar.querySelector(".claim-btn");
-      btn.addEventListener("click", () => {
-        const entry = btn.closest(".library-entry") || btn.parentElement;
-        if (entry.classList.contains("claimed")) {
-          entry.classList.remove("claimed");
-          btn.textContent = "Claim Library Card";
-        } else {
-          entry.classList.add("claimed");
-          btn.textContent = "Library Card Owned";
-        }
-      });
-    });
-  }
-});
-
-// Add all by default
-countyLayer.addTo(map);
-libraryLayer.addTo(map);
-multiLayer.addTo(map);
-municipalLayer.addTo(map);
-unresolvedLayer.addTo(map);
-librariesLayer.addTo(map);
-
-// Layer controls
-L.control.layers(null, {
-  "County Library Districts": countyLayer,
-  "Library Districts": libraryLayer,
-  "Multi-jurisdictional Districts": multiLayer,
-  "Municipal Districts": municipalLayer,
-  "Unresolved Areas": unresolvedLayer,
-  "Libraries": librariesLayer
-}).addTo(map);
 
 
 // ------------------ SECTION 7 - LOAD GEOJSON ------------------
@@ -339,6 +209,7 @@ fetch("colorado_counties.geojson")
     map.fitBounds(geojson.getBounds());
   })
   .catch(err => console.error("Failed to load GeoJSON:", err));
+
 
 
 
