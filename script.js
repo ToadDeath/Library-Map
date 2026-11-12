@@ -1,4 +1,4 @@
-const DISTRICT_DATA_URL = "https://data.colorado.gov/resource/3thw-b7wj.geojson?$select=the_geom,lgid,name,url&$limit=1000";
+const DISTRICT_DATA_URL = "https://data.colorado.gov/resource/3thw-b7wj.geojson?$limit=1000";
 const STATE_LEGAL_INFO_URL = "https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments";
 const STORAGE_KEY = "colorado-library-card-finder.saved.v1";
 
@@ -8,13 +8,15 @@ const map = L.map("map", {
   preferCanvas: true
 }).setView([39.0, -105.5], 6);
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+  maxZoom: 16,
+  attribution: 'Tiles &copy; Esri'
 }).addTo(map);
 
-// Keep the basemap dark without depending on a paid/API-key tile provider.
-map.getPane("tilePane").style.filter = "invert(1) hue-rotate(180deg) brightness(0.78) contrast(0.9) saturate(0.65)";
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}", {
+  maxZoom: 16,
+  attribution: 'Labels &copy; Esri'
+}).addTo(map);
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
 let districtLayer = null;
@@ -212,7 +214,7 @@ async function loadDistricts() {
     if (!data || !Array.isArray(data.features)) throw new Error("The boundary service did not return a GeoJSON feature collection.");
     districts = data.features.map(normalizeFeature).filter(feature => feature.geometry && districtName(feature) !== "Unnamed library district");
     if (!districts.length) throw new Error("No usable district boundaries were returned.");
-    districtLayer = L.geoJSON(districts, { renderer: L.canvas(), smoothFactor: 1.5, style: baseStyle, onEachFeature: onEachDistrict }).addTo(map);
+    districtLayer = L.geoJSON(districts, { renderer: L.canvas(), smoothFactor: 3, style: baseStyle, onEachFeature: onEachDistrict }).addTo(map);
     map.fitBounds(districtLayer.getBounds(), { padding: [25, 25] });
     const countLabel = districts.length + " districts mapped";
     els.districtCount.textContent = countLabel;
