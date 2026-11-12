@@ -1,4 +1,4 @@
-const DISTRICT_DATA_URL = "https://data.colorado.gov/resource/3thw-b7wj.geojson?$limit=1000";
+const DISTRICT_DATA_URL = "https://data.colorado.gov/resource/3thw-b7wj.json?$limit=1000";
 const STATE_LEGAL_INFO_URL = "https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments";
 const STORAGE_KEY = "colorado-library-card-finder.saved.v1";
 
@@ -71,33 +71,30 @@ function districtName(feature) {
   return p.name || p.NAME || p.district_name || p.DISTRICT || "Unnamed library district";
 }
 
-function normalizeFeature(feature) {
-  const copy = { ...feature, properties: { ...(feature.properties || {}) } };
-  const props = copy.properties;
+function normalizeFeature(record) {
+  // The Socrata .json endpoint returns rows, not GeoJSON Features.
+  // Convert each row into a standard Feature using its the_geom field.
+  const isFeature = record && record.type === "Feature";
+  const props = isFeature ? { ...(record.properties || {}) } : { ...(record || {}) };
+  let geometry = isFeature ? record.geometry : null;
 
-  // Some Socrata GeoJSON responses place geometry at the feature level;
-  // others expose the native geometry column inside properties.
-  if (!copy.geometry && props.geometry && typeof props.geometry === "object") {
-    copy.geometry = props.geometry;
-  }
-
-  if (!copy.geometry) {
-    const rawGeometry = props.the_geom ?? props.theGeom ?? props.THEGEOM ?? props.geometry;
-    if (rawGeometry && typeof rawGeometry === "object" && rawGeometry.type && rawGeometry.coordinates) {
-      copy.geometry = rawGeometry;
-    } else if (typeof rawGeometry === "string") {
-      const parser = window.wellknown || (typeof wellknown !== "undefined" ? wellknown : null);
-      if (parser && typeof parser.parse === "function") {
-        try {
-          copy.geometry = parser.parse(rawGeometry);
-        } catch (error) {
-          console.warn("Could not parse district geometry for", props.name || props.lgid, error);
-        }
+  const rawGeometry = props.the_geom ?? props.theGeom ?? props.THEGEOM ?? props.geometry;
+  if (!geometry && rawGeometry && typeof rawGeometry === "object") {
+    // Socrata may wrap the actual GeoJSON geometry in a "geometry" property.
+    geometry = rawGeometry.type === "Feature" ? rawGeometry.geometry : rawGeometry;
+    if (geometry && geometry.geometry && !geometry.coordinates) geometry = geometry.geometry;
+  } else if (!geometry && typeof rawGeometry === "string") {
+    const parser = window.wellknown || (typeof wellknown !== "undefined" ? wellknown : null);
+    if (parser && typeof parser.parse === "function") {
+      try {
+        geometry = parser.parse(rawGeometry);
+      } catch (error) {
+        console.warn("Could not parse district geometry for", props.name || props.lgid, error);
       }
     }
   }
 
-  return copy;
+  return { type: "Feature", properties: props, geometry };
 }
 
 function baseStyle(feature) {
@@ -211,9 +208,18 @@ async function loadDistricts() {
     const response = await fetch(DISTRICT_DATA_URL);
     if (!response.ok) throw new Error("The public district boundary service returned " + response.status);
     const data = await response.json();
-    if (!data || !Array.isArray(data.features)) throw new Error("The boundary service did not return a GeoJSON feature collection.");
-    districts = data.features.map(normalizeFeature).filter(feature => feature.geometry && districtName(feature) !== "Unnamed library district");
-    if (!districts.length) throw new Error("No usable district boundaries were returned.");
+    // Accept either a standard GeoJSON FeatureCollection or Socrata's row-based JSON.
+    const records = Array.isArray(data) ? data : (data && Array.isArray(data.features) ? data.features : null);
+    if (!records) throw new Error("The boundary service returned an unexpected data format.");
+    districts = records.map(normalizeFeature).filter(feature =>
+      feature.geometry &&
+      Array.isArray(feature.geometry.coordinates) &&
+      districtName(feature) !== "Unnamed library district"
+    );
+    if (!districts.length) {
+      const sample = records[0] ? Object.keys(records[0]).join(", ") : "no records";
+      throw new Error("The service returned " + records.length + " records, but none had usable geometry. Fields in first record: " + sample);
+    }
     districtLayer = L.geoJSON(districts, { renderer: L.canvas(), smoothFactor: 5, style: baseStyle, onEachFeature: onEachDistrict }).addTo(map);
     // Keep the initial view focused on Colorado instead of fitting potentially oversized district extents.
     const countLabel = districts.length + " districts mapped";
