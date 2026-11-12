@@ -1,4 +1,4 @@
-const DISTRICT_DATA_URL = "https://data.colorado.gov/resource/3thw-b7wj.json?$limit=1000";
+const DISTRICT_DATA_URL = "https://data.colorado.gov/resource/3thw-b7wj.geojson";
 const STATE_LEGAL_INFO_URL = "https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments";
 const STORAGE_KEY = "colorado-library-card-finder.saved.v1";
 
