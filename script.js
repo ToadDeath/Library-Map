@@ -1,4 +1,4 @@
-const DISTRICT_DATA_URL = "https://data.colorado.gov/resource/3thw-b7wj.geojson?$select=the_geom,lgid,name&$limit=1000";
+const DISTRICT_DATA_URL = "https://data.colorado.gov/resource/3thw-b7wj.geojson?$limit=1000";
 const STATE_LEGAL_INFO_URL = "https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments";
 const STORAGE_KEY = "colorado-library-card-finder.saved.v1";
 
@@ -6,7 +6,7 @@ const map = L.map("map", {
   zoomControl: false,
   scrollWheelZoom: true,
   preferCanvas: true
-}).setView([39.0, -105.5], 7);
+}).setView([39.0, -105.5], 8);
 
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
   maxZoom: 16,
@@ -215,7 +215,7 @@ async function loadDistricts() {
     districts = data.features.map(normalizeFeature).filter(feature => feature.geometry && districtName(feature) !== "Unnamed library district");
     if (!districts.length) throw new Error("No usable district boundaries were returned.");
     districtLayer = L.geoJSON(districts, { renderer: L.canvas(), smoothFactor: 5, style: baseStyle, onEachFeature: onEachDistrict }).addTo(map);
-    map.fitBounds(districtLayer.getBounds(), { padding: [18, 18], maxZoom: 8 });
+    // Keep the initial view focused on Colorado instead of fitting potentially oversized district extents.
     const countLabel = districts.length + " districts mapped";
     els.districtCount.textContent = countLabel;
     els.welcomeCount.textContent = String(districts.length);
