@@ -3,25 +3,80 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Colorado Counties Map</title>
-
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
-
-  <!-- Your CSS -->
+  <meta name="theme-color" content="#171b22">
+  <title>Colorado Library Card Finder</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- MAP CONTAINER -->
-  <div id="map"></div>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Colorado Library Card Finder home">
+      <span class="brand-mark">CO</span>
+      <span><strong>Colorado Library Card Finder</strong><small>Find libraries. Unlock more books.</small></span>
+    </a>
+    <div class="topbar-meta"><span id="district-count">Loading districts…</span><span class="saved-count" id="saved-count">0 saved cards</span></div>
+  </header>
 
-  <!-- Turf.js -->
-  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <main class="app-shell">
+    <section class="map-section" aria-label="Map of Colorado library districts">
+      <div class="map-toolbar">
+        <label class="search-wrap" for="district-search">
+          <span aria-hidden="true">⌕</span>
+          <input id="district-search" type="search" placeholder="Search library districts…" autocomplete="off">
+          <button id="clear-search" class="clear-search" type="button" aria-label="Clear search" hidden>×</button>
+        </label>
+        <button id="show-all" class="toolbar-button" type="button">Show all districts</button>
+      </div>
+      <div id="map"></div>
+      <div class="map-legend"><span class="legend-swatch"></span> Library district boundary <span class="legend-note">Select an area to explore</span></div>
+      <div id="map-error" class="map-error" hidden></div>
+    </section>
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <aside class="side-panel" aria-live="polite">
+      <section id="welcome-panel" class="welcome-panel">
+        <div class="eyebrow">COLORADO LIBRARIES</div>
+        <h1>Your next library card might be closer than you think.</h1>
+        <p>Explore library district service areas, check card options, and keep track of the cards you have.</p>
+        <div class="welcome-stats">
+          <div><strong id="welcome-district-count">—</strong><span>districts mapped</span></div>
+          <div><strong id="welcome-saved-count">0</strong><span>cards saved</span></div>
+        </div>
+        <div class="hint"><span>↖</span> Select a district on the map or search by name to get started.</div>
+      </section>
 
-  <!-- Your Script -->
+      <section id="district-panel" class="district-panel" hidden>
+        <button id="back-to-overview" class="back-button" type="button">← All districts</button>
+        <div class="eyebrow">LIBRARY DISTRICT</div>
+        <h1 id="district-name">District name</h1>
+        <p id="district-subtitle" class="district-subtitle">Colorado</p>
+        <button id="save-card" class="save-button" type="button">＋ Add to my library cards</button>
+
+        <div class="detail-section">
+          <h2>Getting a library card</h2>
+          <div class="detail-row"><span>Who can get a card?</span><strong id="eligibility-value">Not researched yet</strong></div>
+          <div class="detail-row"><span>Online / e-card signup</span><strong id="ecard-value">Not researched yet</strong></div>
+          <div class="detail-row"><span>Libby access with e-card</span><strong id="libby-value">Not researched yet</strong></div>
+        </div>
+
+        <div class="detail-section">
+          <h2>Library links</h2>
+          <a id="official-link" class="resource-link" href="https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments" target="_blank" rel="noopener noreferrer">Find official district information ↗</a>
+          <p class="source-note">Card rules and digital access will be checked against each library's own published information. Unknown details are left unconfirmed rather than guessed.</p>
+        </div>
+        <div class="data-note" id="boundary-note">Boundary data: Colorado Department of Local Affairs. Boundaries are approximate and should be confirmed with the library.</div>
+      </section>
+
+      <section class="saved-section">
+        <div class="saved-heading"><h2>My library cards</h2><span id="saved-heading-count">0</span></div>
+        <p id="saved-empty" class="saved-empty">Save districts here to build your list of library cards.</p>
+        <ul id="saved-list" class="saved-list"></ul>
+      </section>
+      <footer class="panel-footer">An independent project. Always confirm eligibility and card terms with the library before applying.</footer>
+    </aside>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
