@@ -8,11 +8,13 @@ const map = L.map("map", {
   preferCanvas: true
 }).setView([39.0, -105.5], 6);
 
-L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-  subdomains: "abcd",
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
+
+// Keep the basemap dark without depending on a paid/API-key tile provider.
+map.getPane("tilePane").style.filter = "invert(1) hue-rotate(180deg) brightness(0.78) contrast(0.9) saturate(0.65)";
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
 let districtLayer = null;
