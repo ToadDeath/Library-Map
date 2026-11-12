@@ -1,10 +1,10 @@
-const DISTRICT_DATA_URL = "https://data.colorado.gov/resource/3thw-b7wj.geojson?$limit=1000";
+const DISTRICT_DATA_URL = "https://data.colorado.gov/resource/3thw-b7wj.geojson?$select=the_geom,lgid,name,url&$limit=1000";
 const STATE_LEGAL_INFO_URL = "https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments";
 const STORAGE_KEY = "colorado-library-card-finder.saved.v1";
 
 const map = L.map("map", {
   zoomControl: false,
-  scrollWheelZoom: false,
+  scrollWheelZoom: true,
   preferCanvas: true
 }).setView([39.0, -105.5], 6);
 
@@ -71,12 +71,30 @@ function districtName(feature) {
 
 function normalizeFeature(feature) {
   const copy = { ...feature, properties: { ...(feature.properties || {}) } };
+  const props = copy.properties;
+
+  // Some Socrata GeoJSON responses place geometry at the feature level;
+  // others expose the native geometry column inside properties.
+  if (!copy.geometry && props.geometry && typeof props.geometry === "object") {
+    copy.geometry = props.geometry;
+  }
+
   if (!copy.geometry) {
-    const wkt = copy.properties.theGeom || copy.properties.THEGEOM || copy.properties.the_geom;
-    if (typeof wkt === "string" && window.wellknown) {
-      try { copy.geometry = wellknown.parse(wkt); } catch (error) { console.warn("Could not parse district geometry", error); }
+    const rawGeometry = props.the_geom ?? props.theGeom ?? props.THEGEOM ?? props.geometry;
+    if (rawGeometry && typeof rawGeometry === "object" && rawGeometry.type && rawGeometry.coordinates) {
+      copy.geometry = rawGeometry;
+    } else if (typeof rawGeometry === "string") {
+      const parser = window.wellknown || (typeof wellknown !== "undefined" ? wellknown : null);
+      if (parser && typeof parser.parse === "function") {
+        try {
+          copy.geometry = parser.parse(rawGeometry);
+        } catch (error) {
+          console.warn("Could not parse district geometry for", props.name || props.lgid, error);
+        }
+      }
     }
   }
+
   return copy;
 }
 
@@ -194,7 +212,7 @@ async function loadDistricts() {
     if (!data || !Array.isArray(data.features)) throw new Error("The boundary service did not return a GeoJSON feature collection.");
     districts = data.features.map(normalizeFeature).filter(feature => feature.geometry && districtName(feature) !== "Unnamed library district");
     if (!districts.length) throw new Error("No usable district boundaries were returned.");
-    districtLayer = L.geoJSON(districts, { style: baseStyle, onEachFeature: onEachDistrict }).addTo(map);
+    districtLayer = L.geoJSON(districts, { renderer: L.canvas(), smoothFactor: 1.5, style: baseStyle, onEachFeature: onEachDistrict }).addTo(map);
     map.fitBounds(districtLayer.getBounds(), { padding: [25, 25] });
     const countLabel = districts.length + " districts mapped";
     els.districtCount.textContent = countLabel;
