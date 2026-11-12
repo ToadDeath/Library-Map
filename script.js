@@ -1,217 +1,236 @@
-// ------------------ SECTION 1 - MAP INITIALIZATION ------------------
-const map = L.map('map', {
+const DISTRICT_DATA_URL = "https://data.colorado.gov/resource/3thw-b7wj.geojson?$limit=1000";
+const STATE_LEGAL_INFO_URL = "https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments";
+const STORAGE_KEY = "colorado-library-card-finder.saved.v1";
+
+const map = L.map("map", {
   zoomControl: false,
-  attributionControl: false,
-  dragging: false,
   scrollWheelZoom: false,
-  doubleClickZoom: false,
-  boxZoom: false,
-  keyboard: false,
-  touchZoom: false
-}).setView([39.0, -105.5], 8);
+  preferCanvas: true
+}).setView([39.0, -105.5], 6);
 
-let geojson;               // will hold the layer
-let selectedCounty = null; // track which county is active
-let activePopup = L.popup({ autoPan: false }); // global popup
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+  subdomains: "abcd",
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+}).addTo(map);
+L.control.zoom({ position: "bottomright" }).addTo(map);
 
+let districtLayer = null;
+let districts = [];
+let selectedDistrictId = null;
+let savedCards = loadSavedCards();
 
-// ------------------ SECTION 2 - CLAIM STATE ------------------
-const claimed = {}; // key by unique county id
+const els = {
+  search: document.getElementById("district-search"),
+  clearSearch: document.getElementById("clear-search"),
+  showAll: document.getElementById("show-all"),
+  mapError: document.getElementById("map-error"),
+  districtCount: document.getElementById("district-count"),
+  welcomeCount: document.getElementById("welcome-district-count"),
+  savedCount: document.getElementById("saved-count"),
+  welcomeSavedCount: document.getElementById("welcome-saved-count"),
+  savedHeadingCount: document.getElementById("saved-heading-count"),
+  savedList: document.getElementById("saved-list"),
+  savedEmpty: document.getElementById("saved-empty"),
+  welcomePanel: document.getElementById("welcome-panel"),
+  districtPanel: document.getElementById("district-panel"),
+  districtName: document.getElementById("district-name"),
+  districtSubtitle: document.getElementById("district-subtitle"),
+  saveButton: document.getElementById("save-card"),
+  eligibility: document.getElementById("eligibility-value"),
+  ecard: document.getElementById("ecard-value"),
+  libby: document.getElementById("libby-value"),
+  officialLink: document.getElementById("official-link")
+};
 
-
-// ------------------ SECTION 3 - HELPERS ------------------
-function getCountyId(feature) {
-  return String(
-    feature.properties.CNTY_FIPS ||
-    feature.properties.US_FIPS ||
-    feature.properties.FIPS ||
-    feature.properties.FULL
-  );
-}
-
-function getCountyName(feature) {
-  return (
-    feature.properties.FULL ||
-    feature.properties.COUNTY ||
-    feature.properties.LABEL ||
-    "Unknown County"
-  );
-}
-
-function sanitizeId(str) {
-  return String(str).replace(/\s+/g, "-").replace(/[^A-Za-z0-9\-_]/g, "");
-}
-
-
-// --- Section 4: Hover interaction ---
-map.on("mousemove", function (e) {
-  // If a popup is currently open, don't show hover labels
-  if (map._popup) {
-    if (hoverLabel) {
-      map.removeLayer(hoverLabel);
-      hoverLabel = null;
-    }
-    return;
+function loadSavedCards() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
   }
+}
 
-  let countyFound = false;
+function persistSavedCards() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(savedCards));
+  renderSavedCards();
+}
 
-  geojson.eachLayer(function (layer) {
-    if (layer.feature && layer.getBounds().contains(e.latlng)) {
-      countyFound = true;
+function districtId(feature) {
+  const p = feature.properties || {};
+  return String(p.lgid ?? p.LGID ?? p.objectid ?? p.OBJECTID ?? p.id ?? p.ID ?? p.name ?? p.NAME ?? "");
+}
 
-      // Remove old label before adding a new one
-      if (hoverLabel) {
-        map.removeLayer(hoverLabel);
-        hoverLabel = null;
-      }
+function districtName(feature) {
+  const p = feature.properties || {};
+  return p.name || p.NAME || p.district_name || p.DISTRICT || "Unnamed library district";
+}
 
-      // Always recalculate from the county's center
-      const center = layer.getBounds().getCenter();
-
-      hoverLabel = L.tooltip({
-        permanent: true,
-        direction: "center",
-        className: "county-label",
-        offset: [0, 0]
-      })
-        .setContent(layer.feature.properties.NAME)
-        .setLatLng(center)
-        .addTo(map);
+function normalizeFeature(feature) {
+  const copy = { ...feature, properties: { ...(feature.properties || {}) } };
+  if (!copy.geometry) {
+    const wkt = copy.properties.theGeom || copy.properties.THEGEOM || copy.properties.the_geom;
+    if (typeof wkt === "string" && window.wellknown) {
+      try { copy.geometry = wellknown.parse(wkt); } catch (error) { console.warn("Could not parse district geometry", error); }
     }
-  });
-
-  // If not hovering over a county, clear the label
-  if (!countyFound && hoverLabel) {
-    map.removeLayer(hoverLabel);
-    hoverLabel = null;
   }
-});
-
-
-// ------------------ SECTION 5 - CLAIM LOGIC ------------------
-function claimById(id) {
-  claimed[id] = true;
-  refreshOne(id);
+  return copy;
 }
 
-function unclaimById(id) {
-  delete claimed[id];
-  refreshOne(id);
+function baseStyle(feature) {
+  const isSelected = districtId(feature) === selectedDistrictId;
+  return {
+    color: isSelected ? "#d2f2df" : "#86c9a4",
+    weight: isSelected ? 2.8 : 1.1,
+    opacity: isSelected ? 1 : 0.88,
+    fillColor: isSelected ? "#80c7a0" : "#4e8667",
+    fillOpacity: isSelected ? 0.62 : 0.35
+  };
 }
 
-function refreshOne(id) {
-  geojson.eachLayer(layer => {
-    if (getCountyId(layer.feature) === id) {
-      geojson.resetStyle(layer);
-      layer.closePopup();
-    }
+function showDistrict(feature) {
+  selectedDistrictId = districtId(feature);
+  districtLayer.setStyle(baseStyle);
+  districtLayer.eachLayer(layer => {
+    if (districtId(layer.feature) === selectedDistrictId) layer.bringToFront();
   });
+  const name = districtName(feature);
+  els.districtName.textContent = name;
+  els.districtSubtitle.textContent = "Colorado library district";
+  els.eligibility.textContent = "Research needed";
+  els.ecard.textContent = "Research needed";
+  els.libby.textContent = "Research needed";
+  els.officialLink.href = STATE_LEGAL_INFO_URL;
+  els.officialLink.textContent = "Find official district information ↗";
+  els.saveButton.classList.toggle("is-saved", isSaved(selectedDistrictId));
+  els.saveButton.textContent = isSaved(selectedDistrictId) ? "✓ Added to my library cards" : "＋ Add to my library cards";
+  els.welcomePanel.hidden = true;
+  els.districtPanel.hidden = false;
 }
 
+function isSaved(id) {
+  return savedCards.some(card => card.id === id);
+}
 
-// ------------------ SECTION 6 - INTERACTION ------------------
-function onEachCounty(feature, layer) {
-  const id = getCountyId(feature);
-  const name = getCountyName(feature);
-  const domId = sanitizeId(id);
+function resetSelection() {
+  selectedDistrictId = null;
+  if (districtLayer) districtLayer.setStyle(baseStyle);
+  els.districtPanel.hidden = true;
+  els.welcomePanel.hidden = false;
+}
 
-  // Compute centroid with Turf
-  const centroid = turf.centroid(feature).geometry.coordinates;
-  const centerLatLng = [centroid[1], centroid[0]];
-
-  // Hover: show tooltip at centroid, only if no popup is open
-  layer.on("mouseover", () => {
-    if (selectedCounty) return; // suppress tooltips while popup open
-    highlightFeature({ target: layer });
-
-    const tooltip = L.tooltip({
-      permanent: false,
-      direction: "center",
-      className: "county-tooltip"
-    })
-      .setLatLng(centerLatLng)
-      .setContent(name);
-
-    layer.bindTooltip(tooltip).openTooltip();
-  });
-
-  // Leave: remove tooltip + reset style (if no popup active)
-  layer.on("mouseout", () => {
-    if (selectedCounty) return; // don’t reset while popup open
-    resetHighlight({ target: layer });
-    layer.unbindTooltip();
-  });
-
-  // Click: open popup at centroid
-  layer.on("click", () => {
-    const isClaimed = !!claimed[id];
-    const btnLabel = isClaimed ? "Unclaim Library Card" : "Claim Library Card";
-
-    const popupContent = `
-      <div style="text-align:center;">
-        <strong>${name}</strong><br>
-        <button id="btn-${domId}" class="claim-btn">${btnLabel}</button>
-      </div>
-    `;
-
-    // Reset previously selected county
-    if (selectedCounty && selectedCounty !== layer) {
-      geojson.resetStyle(selectedCounty);
-      if (selectedCounty._path) {
-        selectedCounty._path.classList.remove("leaflet-shadow");
+function renderSavedCards() {
+  const count = savedCards.length;
+  els.savedCount.textContent = count + (count === 1 ? " saved card" : " saved cards");
+  els.welcomeSavedCount.textContent = String(count);
+  els.savedHeadingCount.textContent = String(count);
+  els.savedEmpty.hidden = count > 0;
+  els.savedList.replaceChildren();
+  savedCards.forEach(card => {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.textContent = card.name;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "Remove";
+    remove.setAttribute("aria-label", "Remove " + card.name + " from my library cards");
+    remove.addEventListener("click", () => {
+      savedCards = savedCards.filter(item => item.id !== card.id);
+      persistSavedCards();
+      if (selectedDistrictId === card.id) {
+        els.saveButton.classList.remove("is-saved");
+        els.saveButton.textContent = "＋ Add to my library cards";
       }
-    }
+    });
+    li.append(name, remove);
+    els.savedList.append(li);
+  });
+}
 
-    // Open popup at centroid
-    activePopup.setLatLng(centerLatLng).setContent(popupContent).openOn(map);
-
-    // Highlight this county
-    highlightFeature({ target: layer });
-    selectedCounty = layer;
-
-    // Add button click behavior
-    setTimeout(() => {
-      const btn = document.getElementById(`btn-${domId}`);
-      if (!btn) return;
-      btn.onclick = () => {
-        if (claimed[id]) {
-          unclaimById(id);
-        } else {
-          claimById(id);
-        }
-        map.closePopup();
-      };
-    }, 0);
-
-    // Reset when popup closes
-    map.once("popupclose", () => {
-      if (selectedCounty) {
-        geojson.resetStyle(selectedCounty);
-        if (selectedCounty._path) {
-          selectedCounty._path.classList.remove("leaflet-shadow");
-        }
-        selectedCounty = null;
-      }
+function applySearch() {
+  const query = els.search.value.trim().toLocaleLowerCase();
+  els.clearSearch.hidden = !query;
+  if (!districtLayer) return;
+  districtLayer.eachLayer(layer => {
+    const matches = !query || districtName(layer.feature).toLocaleLowerCase().includes(query);
+    layer.setStyle({
+      ...baseStyle(layer.feature),
+      opacity: matches ? (districtId(layer.feature) === selectedDistrictId ? 1 : 0.88) : 0.12,
+      fillOpacity: matches ? (districtId(layer.feature) === selectedDistrictId ? 0.62 : 0.35) : 0.025
     });
   });
 }
 
+function zoomToDistrict(feature) {
+  const layer = districtLayer.getLayers().find(item => districtId(item.feature) === districtId(feature));
+  if (layer && layer.getBounds().isValid()) map.fitBounds(layer.getBounds(), { padding: [45, 45], maxZoom: 10 });
+}
 
-// ------------------ SECTION 7 - LOAD GEOJSON ------------------
-fetch("colorado_counties.geojson")
-  .then(r => r.json())
-  .then(data => {
-    geojson = L.geoJSON(data, {
-      style: countyStyle,
-      onEachFeature: onEachCounty
-    }).addTo(map);
+function onEachDistrict(feature, layer) {
+  layer.bindTooltip(districtName(feature), { className: "district-tooltip", sticky: true });
+  layer.on({
+    mouseover: () => {
+      if (districtId(feature) !== selectedDistrictId) layer.setStyle({ weight: 2, fillOpacity: 0.52 });
+    },
+    mouseout: () => {
+      if (districtId(feature) !== selectedDistrictId) layer.setStyle(baseStyle(feature));
+      applySearch();
+    },
+    click: () => {
+      showDistrict(feature);
+      zoomToDistrict(feature);
+    }
+  });
+}
 
-    map.fitBounds(geojson.getBounds());
-  })
-  .catch(err => console.error("Failed to load GeoJSON:", err));
+async function loadDistricts() {
+  try {
+    const response = await fetch(DISTRICT_DATA_URL);
+    if (!response.ok) throw new Error("The public district boundary service returned " + response.status);
+    const data = await response.json();
+    if (!data || !Array.isArray(data.features)) throw new Error("The boundary service did not return a GeoJSON feature collection.");
+    districts = data.features.map(normalizeFeature).filter(feature => feature.geometry && districtName(feature) !== "Unnamed library district");
+    if (!districts.length) throw new Error("No usable district boundaries were returned.");
+    districtLayer = L.geoJSON(districts, { style: baseStyle, onEachFeature: onEachDistrict }).addTo(map);
+    map.fitBounds(districtLayer.getBounds(), { padding: [25, 25] });
+    const countLabel = districts.length + " districts mapped";
+    els.districtCount.textContent = countLabel;
+    els.welcomeCount.textContent = String(districts.length);
+    applySearch();
+  } catch (error) {
+    console.error("Failed to load Colorado library district boundaries:", error);
+    els.mapError.hidden = false;
+    els.mapError.textContent = "The library district map could not load. Please try refreshing. " + error.message;
+    els.districtCount.textContent = "Map unavailable";
+  }
+}
 
+els.search.addEventListener("input", applySearch);
+els.clearSearch.addEventListener("click", () => {
+  els.search.value = "";
+  applySearch();
+  els.search.focus();
+});
+els.showAll.addEventListener("click", () => {
+  resetSelection();
+  els.search.value = "";
+  applySearch();
+  if (districtLayer) map.fitBounds(districtLayer.getBounds(), { padding: [25, 25] });
+});
+document.getElementById("back-to-overview").addEventListener("click", resetSelection);
+els.saveButton.addEventListener("click", () => {
+  if (!selectedDistrictId) return;
+  if (isSaved(selectedDistrictId)) {
+    savedCards = savedCards.filter(card => card.id !== selectedDistrictId);
+  } else {
+    const feature = districts.find(item => districtId(item) === selectedDistrictId);
+    if (feature) savedCards.push({ id: selectedDistrictId, name: districtName(feature) });
+  }
+  persistSavedCards();
+  els.saveButton.classList.toggle("is-saved", isSaved(selectedDistrictId));
+  els.saveButton.textContent = isSaved(selectedDistrictId) ? "✓ Added to my library cards" : "＋ Add to my library cards";
+});
 
-
-
-
+renderSavedCards();
+loadDistricts();
