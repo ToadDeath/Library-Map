@@ -1,4 +1,4 @@
-const DISTRICT_DATA_URL = "https://data.colorado.gov/resource/3thw-b7wj.geojson?$select=theGeom,lgid,name&$limit=1000";
+const DISTRICT_DATA_URL = "https://data.colorado.gov/resource/3thw-b7wj.geojson?$select=the_geom,lgid,name&$limit=1000";
 const STATE_LEGAL_INFO_URL = "https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments";
 const STORAGE_KEY = "colorado-library-card-finder.saved.v1";
 
@@ -215,7 +215,7 @@ async function loadDistricts() {
     districts = data.features.map(normalizeFeature).filter(feature => feature.geometry && districtName(feature) !== "Unnamed library district");
     if (!districts.length) throw new Error("No usable district boundaries were returned.");
     districtLayer = L.geoJSON(districts, { renderer: L.canvas(), smoothFactor: 5, style: baseStyle, onEachFeature: onEachDistrict }).addTo(map);
-    map.fitBounds(districtLayer.getBounds(), { padding: [18, 18], maxZoom: 7 });
+    map.fitBounds(districtLayer.getBounds(), { padding: [18, 18], maxZoom: 8 });
     const countLabel = districts.length + " districts mapped";
     els.districtCount.textContent = countLabel;
     els.welcomeCount.textContent = String(districts.length);
