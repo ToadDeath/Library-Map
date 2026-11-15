@@ -1,5 +1,7 @@
 const DISTRICT_DATA_URL = "./library.zip";
 const STATE_LEGAL_INFO_URL = "https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments";
+const OFFICIAL_DISTRICTS_URL = "https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments";
+const OFFICIAL_DISTRICT_NAMES = ["Arapahoe Library District","Basalt Regional Library District","Berthoud Community Library District","Boulder Public Library District","Clear Creek County Library District","Clearview Library District","Conejos County Library District","Delta County Public Library District","Dolores Library District","Douglas County Libraries","Eagle Valley Library District","East Cheyenne County Library District","East Morgan County Library District","East Routt Library District","Elbert County Library District","Estes Valley Public Library District","Garfield County Library District","Gilpin County Library District","Grand County Library District","Gunnison County Library District","High Plains Library District","Hinsdale County Regional Library District","Ignacio Community Library District","John C. Fremont Library District","Kiowa County Library District","La Veta Regional Library District","Las Animas-Bent County Library District","Lone Cone Library District","Lyons Regional Library District","Mancos Library District","Meeker Regional Library District","Mesa County Public Library District","Montrose Regional Library District","Nederland Community Library District","Northern Chaffee County Library District","Northern Saguache County Library District","Ouray Library District","Penrose Community Library District","Pikes Peak Library District","Pine River Public Library District","Poudre River Public Library District","Pueblo City-County Library District","Rampart Regional Library District","Rangely Regional Library District","Rangeview Library District","Red Feather Mountain Library District","Ridgway Library District","Rio Grande County Library District","San Miguel Library District #1","South Routt Library District","Southern Chaffee County Library District","Southern Teller County Public Library District","Southwest La Plata Library District","Spanish Peaks Library District","Upper San Juan Library District","West Custer County Library District","West Routt Library District"];
 const STORAGE_KEY = "colorado-library-card-finder.saved.v1";
 
 const COLORADO_BOUNDS = L.latLngBounds([36.95, -109.1], [41.1, -102.0]);
@@ -58,7 +60,30 @@ async function loadColoradoMask() {
 }
 loadColoradoMask();
 
+// County outlines are a geographic reference only. County borders do not define
+// library-card eligibility or imply that every library in a county shares a card.
+async function loadCountyBoundaries() {
+  try {
+    const response = await fetch("./colorado_counties.geojson");
+    if (!response.ok) throw new Error("County boundary file returned " + response.status);
+    const data = await response.json();
+    countyLayer = L.geoJSON(data, {
+      interactive: true,
+      style: { color: "#758292", weight: 0.8, opacity: 0.58, dashArray: "3 5", fill: false },
+      onEachFeature: (feature, layer) => {
+        const name = feature.properties && (feature.properties.FULL || feature.properties.COUNTY);
+        if (name) layer.bindTooltip(name, { className: "county-tooltip", sticky: true });
+      }
+    }).addTo(map);
+    countyLayer.bringToBack();
+  } catch (error) {
+    console.warn("Could not load Colorado county reference boundaries:", error);
+  }
+}
+loadCountyBoundaries();
+
 let districtLayer = null;
+let countyLayer = null;
 let districts = [];
 let selectedDistrictId = null;
 let savedCards = loadSavedCards();
@@ -208,31 +233,49 @@ function renderSavedCards() {
   });
 }
 
+function normalizeDistrictKey(value) {
+  return String(value || "").toLocaleLowerCase()
+    .replace(/\\b(county|regional|public|library|district|no)\\b/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 function renderDistrictDirectory() {
-  if (!els.directory || !districts.length) return;
+  if (!els.directory) return;
   const query = els.search.value.trim().toLocaleLowerCase();
-  const unique = new Map();
+  const mappedByKey = new Map();
   districts.forEach(feature => {
-    const id = districtId(feature);
-    if (id && !unique.has(id)) unique.set(id, feature);
+    const key = normalizeDistrictKey(districtName(feature));
+    if (key && !mappedByKey.has(key)) mappedByKey.set(key, feature);
   });
-  const entries = [...unique.values()]
-    .filter(feature => districtName(feature).toLocaleLowerCase().includes(query))
-    .sort((a, b) => districtName(a).localeCompare(districtName(b)));
-  els.directoryCount.textContent = entries.length + " of " + unique.size;
+  const entries = OFFICIAL_DISTRICT_NAMES.map(name => ({
+    name,
+    feature: mappedByKey.get(normalizeDistrictKey(name)) || null
+  })).filter(entry => entry.name.toLocaleLowerCase().includes(query))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const mappedCount = entries.filter(entry => entry.feature).length;
+  els.directoryCount.textContent = mappedCount + " mapped / " + entries.length + " shown";
   els.directory.replaceChildren();
-  entries.forEach(feature => {
+  entries.forEach(entry => {
     const li = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "directory-item";
-    button.textContent = districtName(feature);
-    button.setAttribute("aria-label", "View " + districtName(feature));
-    button.addEventListener("click", () => {
-      showDistrict(feature);
-      zoomToDistrict(feature);
-    });
-    li.append(button);
+    if (entry.feature) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "directory-item";
+      button.textContent = entry.name;
+      button.setAttribute("aria-label", "View " + entry.name);
+      button.addEventListener("click", () => {
+        showDistrict(entry.feature);
+        zoomToDistrict(entry.feature);
+      });
+      li.append(button);
+    } else {
+      li.className = "directory-pending";
+      const name = document.createElement("span");
+      name.textContent = entry.name;
+      const status = document.createElement("small");
+      status.textContent = "Boundary not matched";
+      li.append(name, status);
+    }
     els.directory.append(li);
   });
   if (!entries.length) {
@@ -242,7 +285,6 @@ function renderDistrictDirectory() {
     els.directory.append(li);
   }
 }
-
 function applySearch() {
   const query = els.search.value.trim().toLocaleLowerCase();
   els.clearSearch.hidden = !query;
@@ -307,9 +349,10 @@ async function loadDistricts() {
     // Some districts contain multiple separate polygons, so count unique district IDs.
     const districtCount = new Set(districts.map(districtId)).size;
     // Keep the initial view focused on Colorado instead of fitting potentially oversized district extents.
-    const countLabel = districtCount + " districts mapped";
+    const officialCount = OFFICIAL_DISTRICT_NAMES.length;
+    const countLabel = districtCount + " mapped / " + officialCount + " official districts";
     els.districtCount.textContent = countLabel;
-    els.welcomeCount.textContent = String(districtCount);
+    els.welcomeCount.textContent = districtCount + " / " + officialCount;
     applySearch();
   } catch (error) {
     console.error("Failed to load Colorado library district boundaries:", error);
