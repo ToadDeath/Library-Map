@@ -118,3 +118,8 @@ h1 { margin: 11px 0 10px; font-size: 27px; line-height: 1.16; letter-spacing: -.
 @media (max-width: 680px) {
   .district-directory { max-height: 260px; }
 }
+
+.county-legend-swatch { width: 17px; height: 0; border-top: 1px dashed #9aa6b4; margin-left: 5px; }
+.county-tooltip { background: #202833; border: 1px solid #687789; border-radius: 5px; color: #e6edf5; box-shadow: none; font-size: 10px; }
+.directory-pending { display: flex; flex-direction: column; gap: 3px; padding: 9px 8px; color: #dce5ee; font-size: 11px; line-height: 1.35; }
+.directory-pending small { color: #d4ae77; font-size: 9px; }
