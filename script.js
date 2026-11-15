@@ -2,11 +2,14 @@ const DISTRICT_DATA_URL = "./library.zip";
 const STATE_LEGAL_INFO_URL = "https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments";
 const STORAGE_KEY = "colorado-library-card-finder.saved.v1";
 
+const COLORADO_BOUNDS = L.latLngBounds([36.95, -109.1], [41.1, -102.0]);
 const map = L.map("map", {
   zoomControl: false,
   scrollWheelZoom: true,
-  preferCanvas: true
-}).setView([39.0, -105.5], 8);
+  preferCanvas: true,
+  maxBounds: COLORADO_BOUNDS,
+  maxBoundsViscosity: 1
+}).fitBounds(COLORADO_BOUNDS, { padding: [24, 24] });
 
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
   maxZoom: 16,
@@ -37,6 +40,8 @@ const els = {
   savedList: document.getElementById("saved-list"),
   savedEmpty: document.getElementById("saved-empty"),
   welcomePanel: document.getElementById("welcome-panel"),
+  directory: document.getElementById("district-directory"),
+  directoryCount: document.getElementById("directory-count"),
   districtPanel: document.getElementById("district-panel"),
   districtName: document.getElementById("district-name"),
   districtSubtitle: document.getElementById("district-subtitle"),
@@ -167,18 +172,55 @@ function renderSavedCards() {
   });
 }
 
+function renderDistrictDirectory() {
+  if (!els.directory || !districts.length) return;
+  const query = els.search.value.trim().toLocaleLowerCase();
+  const unique = new Map();
+  districts.forEach(feature => {
+    const id = districtId(feature);
+    if (id && !unique.has(id)) unique.set(id, feature);
+  });
+  const entries = [...unique.values()]
+    .filter(feature => districtName(feature).toLocaleLowerCase().includes(query))
+    .sort((a, b) => districtName(a).localeCompare(districtName(b)));
+  els.directoryCount.textContent = entries.length + " of " + unique.size;
+  els.directory.replaceChildren();
+  entries.forEach(feature => {
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "directory-item";
+    button.textContent = districtName(feature);
+    button.setAttribute("aria-label", "View " + districtName(feature));
+    button.addEventListener("click", () => {
+      showDistrict(feature);
+      zoomToDistrict(feature);
+    });
+    li.append(button);
+    els.directory.append(li);
+  });
+  if (!entries.length) {
+    const li = document.createElement("li");
+    li.className = "directory-no-results";
+    li.textContent = "No matching districts.";
+    els.directory.append(li);
+  }
+}
+
 function applySearch() {
   const query = els.search.value.trim().toLocaleLowerCase();
   els.clearSearch.hidden = !query;
-  if (!districtLayer) return;
-  districtLayer.eachLayer(layer => {
-    const matches = !query || districtName(layer.feature).toLocaleLowerCase().includes(query);
-    layer.setStyle({
-      ...baseStyle(layer.feature),
-      opacity: matches ? (districtId(layer.feature) === selectedDistrictId ? 1 : 0.88) : 0.12,
-      fillOpacity: matches ? (districtId(layer.feature) === selectedDistrictId ? 0.62 : 0.35) : 0.025
+  if (districtLayer) {
+    districtLayer.eachLayer(layer => {
+      const matches = !query || districtName(layer.feature).toLocaleLowerCase().includes(query);
+      layer.setStyle({
+        ...baseStyle(layer.feature),
+        opacity: matches ? (districtId(layer.feature) === selectedDistrictId ? 1 : 0.88) : 0.12,
+        fillOpacity: matches ? (districtId(layer.feature) === selectedDistrictId ? 0.62 : 0.35) : 0.025
+      });
     });
-  });
+  }
+  renderDistrictDirectory();
 }
 
 function zoomToDistrict(feature) {
@@ -251,7 +293,7 @@ els.showAll.addEventListener("click", () => {
   resetSelection();
   els.search.value = "";
   applySearch();
-  if (districtLayer) map.fitBounds(districtLayer.getBounds(), { padding: [25, 25] });
+  map.fitBounds(COLORADO_BOUNDS, { padding: [24, 24] });
 });
 document.getElementById("back-to-overview").addEventListener("click", resetSelection);
 els.saveButton.addEventListener("click", () => {
