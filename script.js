@@ -22,6 +22,42 @@ L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_D
 }).addTo(map);
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
+// Cover the basemap outside Colorado using the state's official boundary.
+async function loadColoradoMask() {
+  const boundaryUrl = "https://www.cohealthmaps.dphe.state.co.us/arcgis/rest/services/OPEN_DATA/cdphe_geographic_analysis_boundaries/MapServer/9/query?where=1%3D1&outFields=NAME&returnGeometry=true&outSR=4326&f=geojson";
+  try {
+    const response = await fetch(boundaryUrl);
+    if (!response.ok) throw new Error("Colorado boundary request failed: " + response.status);
+    const data = await response.json();
+    const feature = data.features && data.features[0];
+    if (!feature || !feature.geometry) throw new Error("Colorado boundary geometry was missing.");
+    const world = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
+    const geometry = feature.geometry;
+    const stateRings = geometry.type === "Polygon"
+      ? geometry.coordinates
+      : geometry.type === "MultiPolygon"
+        ? geometry.coordinates.flatMap(polygon => polygon)
+        : null;
+    if (!stateRings || !stateRings.length) throw new Error("Unsupported Colorado boundary geometry.");
+    const mask = {
+      type: "Feature",
+      properties: {},
+      geometry: { type: "Polygon", coordinates: [world, ...stateRings] }
+    };
+    L.geoJSON(mask, {
+      interactive: false,
+      style: { stroke: false, fillColor: "#171d25", fillOpacity: 1, fillRule: "evenodd" }
+    }).addTo(map);
+    L.geoJSON(feature, {
+      interactive: false,
+      style: { color: "#718091", weight: 1.5, opacity: 0.9, fill: false }
+    }).addTo(map);
+  } catch (error) {
+    console.warn("Could not apply Colorado-only map mask:", error);
+  }
+}
+loadColoradoMask();
+
 let districtLayer = null;
 let districts = [];
 let selectedDistrictId = null;
