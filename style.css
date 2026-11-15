@@ -105,3 +105,16 @@ h1 { margin: 11px 0 10px; font-size: 27px; line-height: 1.16; letter-spacing: -.
   .welcome-panel h1 { max-width: 460px; }
   .saved-section { margin-top: 10px; }
 }
+
+.directory-heading { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.directory-heading h2 { margin: 0; font-size: 13px; }
+.directory-heading > span { color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.directory-note { margin: 7px 0 9px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.district-directory { list-style: none; padding: 0; margin: 0; max-height: 310px; overflow-y: auto; border-top: 1px solid #303a47; }
+.district-directory li { margin: 0; border-bottom: 1px solid #303a47; }
+.directory-item { display: block; width: 100%; padding: 9px 8px; border: 0; background: transparent; color: #dce5ee; text-align: left; font-size: 11px; line-height: 1.35; }
+.directory-item:hover, .directory-item:focus-visible { outline: none; background: #2b3743; color: #b9f0d2; }
+.directory-no-results { padding: 12px 8px; color: var(--muted); font-size: 11px; }
+@media (max-width: 680px) {
+  .district-directory { max-height: 260px; }
+}
