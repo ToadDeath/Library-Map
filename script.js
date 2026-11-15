@@ -23,6 +23,10 @@ L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_D
   attribution: 'Labels &copy; Esri'
 }).addTo(map);
 L.control.zoom({ position: "bottomright" }).addTo(map);
+map.createPane("maskPane");
+map.getPane("maskPane").style.zIndex = "300";
+map.createPane("countyPane");
+map.getPane("countyPane").style.zIndex = "350";
 
 // Cover the basemap outside Colorado using the state's official boundary.
 async function loadColoradoMask() {
@@ -48,10 +52,12 @@ async function loadColoradoMask() {
     };
     L.geoJSON(mask, {
       interactive: false,
+      pane: "maskPane",
       style: { stroke: false, fillColor: "#171d25", fillOpacity: 1, fillRule: "evenodd" }
     }).addTo(map);
     L.geoJSON(feature, {
       interactive: false,
+      pane: "maskPane",
       style: { color: "#718091", weight: 1.5, opacity: 0.9, fill: false }
     }).addTo(map);
   } catch (error) {
@@ -69,13 +75,13 @@ async function loadCountyBoundaries() {
     const data = await response.json();
     countyLayer = L.geoJSON(data, {
       interactive: true,
+      pane: "countyPane",
       style: { color: "#758292", weight: 0.8, opacity: 0.58, dashArray: "3 5", fill: false },
       onEachFeature: (feature, layer) => {
         const name = feature.properties && (feature.properties.FULL || feature.properties.COUNTY);
         if (name) layer.bindTooltip(name, { className: "county-tooltip", sticky: true });
       }
     }).addTo(map);
-    countyLayer.bringToBack();
   } catch (error) {
     console.warn("Could not load Colorado county reference boundaries:", error);
   }
