@@ -361,7 +361,7 @@ async function loadDistricts() {
     const districtCount = new Set(districts.map(districtId)).size;
     // Keep the initial view focused on Colorado instead of fitting potentially oversized district extents.
     const officialCount = OFFICIAL_DISTRICT_NAMES.length;
-    const countLabel = districtCount + " mapped / " + officialCount + " official districts";
+    const countLabel = districtCount + " polygon records / " + officialCount + " official districts";
     els.districtCount.textContent = countLabel;
     els.welcomeCount.textContent = districtCount + " / " + officialCount;
     applySearch();
