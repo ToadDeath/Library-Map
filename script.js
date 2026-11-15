@@ -241,7 +241,12 @@ function renderSavedCards() {
 
 function normalizeDistrictKey(value) {
   return String(value || "").toLocaleLowerCase()
-    .replace(/\\b(county|regional|public|library|district|no)\\b/g, "")
+    .replaceAll("county", "")
+    .replaceAll("regional", "")
+    .replaceAll("public", "")
+    .replaceAll("library", "")
+    .replaceAll("district", "")
+    .replaceAll("no.", "")
     .replace(/[^a-z0-9]/g, "");
 }
 
