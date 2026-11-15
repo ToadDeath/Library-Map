@@ -1,4 +1,4 @@
-const DISTRICT_DATA_URL = "https://data.colorado.gov/resource/3thw-b7wj.geojson";
+const DISTRICT_DATA_URL = "./library.zip";
 const STATE_LEGAL_INFO_URL = "https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments";
 const STORAGE_KEY = "colorado-library-card-finder.saved.v1";
 
@@ -182,8 +182,11 @@ function applySearch() {
 }
 
 function zoomToDistrict(feature) {
-  const layer = districtLayer.getLayers().find(item => districtId(item.feature) === districtId(feature));
-  if (layer && layer.getBounds().isValid()) map.fitBounds(layer.getBounds(), { padding: [45, 45], maxZoom: 10 });
+  const matchingLayers = districtLayer.getLayers().filter(item => districtId(item.feature) === districtId(feature));
+  if (matchingLayers.length) {
+    const bounds = L.featureGroup(matchingLayers).getBounds();
+    if (bounds.isValid()) map.fitBounds(bounds, { padding: [45, 45], maxZoom: 10 });
+  }
 }
 
 function onEachDistrict(feature, layer) {
@@ -205,10 +208,12 @@ function onEachDistrict(feature, layer) {
 
 async function loadDistricts() {
   try {
-    const response = await fetch(DISTRICT_DATA_URL);
-    if (!response.ok) throw new Error("The public district boundary service returned " + response.status);
-    const data = await response.json();
-    // Accept either a standard GeoJSON FeatureCollection or Socrata's row-based JSON.
+    if (typeof window.shp !== "function") {
+      throw new Error("The shapefile parser did not load. Please refresh and try again.");
+    }
+    // Parse the locally hosted official GIS ZIP into GeoJSON in the browser.
+    const data = await window.shp(DISTRICT_DATA_URL);
+    // shpjs returns a GeoJSON FeatureCollection when the ZIP contains one shapefile.
     const records = Array.isArray(data) ? data : (data && Array.isArray(data.features) ? data.features : null);
     if (!records) throw new Error("The boundary service returned an unexpected data format.");
     districts = records.map(normalizeFeature).filter(feature =>
@@ -221,10 +226,12 @@ async function loadDistricts() {
       throw new Error("The service returned " + records.length + " records, but none had usable geometry. Fields in first record: " + sample);
     }
     districtLayer = L.geoJSON(districts, { renderer: L.canvas(), smoothFactor: 5, style: baseStyle, onEachFeature: onEachDistrict }).addTo(map);
+    // Some districts contain multiple separate polygons, so count unique district IDs.
+    const districtCount = new Set(districts.map(districtId)).size;
     // Keep the initial view focused on Colorado instead of fitting potentially oversized district extents.
-    const countLabel = districts.length + " districts mapped";
+    const countLabel = districtCount + " districts mapped";
     els.districtCount.textContent = countLabel;
-    els.welcomeCount.textContent = String(districts.length);
+    els.welcomeCount.textContent = String(districtCount);
     applySearch();
   } catch (error) {
     console.error("Failed to load Colorado library district boundaries:", error);
