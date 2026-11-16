@@ -128,6 +128,8 @@ let countyLayer = null;
 let jurisdictionRecords = [];
 let districts = [];
 let selectedDistrictId = null;
+let selectedLibraryId = null;
+let selectedLibraryName = null;
 let savedCards = loadSavedCards();
 
 const els = {
@@ -143,8 +145,6 @@ const els = {
   savedList: document.getElementById("saved-list"),
   savedEmpty: document.getElementById("saved-empty"),
   welcomePanel: document.getElementById("welcome-panel"),
-  directory: document.getElementById("district-directory"),
-  directoryCount: document.getElementById("directory-count"),
   jurisdictionDirectory: document.getElementById("jurisdiction-directory"),
   jurisdictionCount: document.getElementById("jurisdiction-count"),
   districtPanel: document.getElementById("district-panel"),
@@ -154,7 +154,8 @@ const els = {
   eligibility: document.getElementById("eligibility-value"),
   ecard: document.getElementById("ecard-value"),
   libby: document.getElementById("libby-value"),
-  officialLink: document.getElementById("official-link")
+  officialLink: document.getElementById("official-link"),
+  systemTypeLabel: document.getElementById("system-type-label")
 };
 
 function loadSavedCards() {
@@ -218,32 +219,79 @@ function baseStyle(feature) {
   };
 }
 
-function showDistrict(feature) {
-  selectedDistrictId = districtId(feature);
-  districtLayer.setStyle(baseStyle);
-  districtLayer.eachLayer(layer => {
+function legalBasisLabel(value) {
+  const raw = String(value || "").trim();
+  const labels = { LD: "Library district", CI: "City or town library", CO: "County library", MJ: "Joint / multijurisdictional library", CC: "City-county library", SD: "School-administered library" };
+  return labels[raw.toUpperCase()] || raw || "Public library system";
+}
+function systemId(record) {
+  return "system:" + jurisdictionName(record.attributes || {}).toLocaleLowerCase();
+}
+function findJurisdictionForDistrict(feature) {
+  const key = normalizeDistrictKey(districtName(feature));
+  return jurisdictionRecords.find(record => normalizeDistrictKey(jurisdictionName(record.attributes || {})) === key) || null;
+}
+function findJurisdictionBoundary(record) {
+  const key = normalizeDistrictKey(jurisdictionName(record.attributes || {}));
+  return districts.find(feature => normalizeDistrictKey(districtName(feature)) === key) || null;
+}
+function showJurisdiction(record, linkedFeature = null) {
+  const a = record.attributes || {};
+  const name = jurisdictionName(a);
+  selectedLibraryId = systemId(record);
+  selectedLibraryName = name;
+  selectedDistrictId = linkedFeature ? districtId(linkedFeature) : null;
+  if (districtLayer) districtLayer.setStyle(baseStyle);
+  if (linkedFeature && districtLayer) districtLayer.eachLayer(layer => {
     if (districtId(layer.feature) === selectedDistrictId) layer.bringToFront();
   });
-  const name = districtName(feature);
+  const type = legalBasisLabel(a.Legal_Basis || a.USER_Organization_Legal_Basis || a.USER_Type);
+  const county = a.County || a.USER_County || "";
+  const city = a.USER_City || "";
   els.districtName.textContent = name;
-  els.districtSubtitle.textContent = "Colorado library district";
-  els.eligibility.textContent = "Research needed";
-  els.ecard.textContent = "Research needed";
-  els.libby.textContent = "Research needed";
-  els.officialLink.href = STATE_LEGAL_INFO_URL;
-  els.officialLink.textContent = "Find official district information ↗";
-  els.saveButton.classList.toggle("is-saved", isSaved(selectedDistrictId));
-  els.saveButton.textContent = isSaved(selectedDistrictId) ? "✓ Added to my library cards" : "＋ Add to my library cards";
+  els.systemTypeLabel.textContent = type.toLocaleUpperCase();
+  els.districtSubtitle.textContent = [city, county ? county + " County" : ""].filter(Boolean).join(" · ") || "Colorado public library system";
+  els.eligibility.textContent = "Check with library";
+  els.ecard.textContent = "Not yet verified";
+  els.libby.textContent = "Not yet verified";
+  const website = a.USER_URL;
+  const hasWebsite = website && /^https?:\/\//i.test(website);
+  els.officialLink.href = hasWebsite ? website : STATE_LEGAL_INFO_URL;
+  els.officialLink.textContent = hasWebsite ? "Visit library website ↗" : "Find state library information ↗";
+  els.saveButton.classList.toggle("is-saved", isSaved(selectedLibraryId));
+  els.saveButton.textContent = isSaved(selectedLibraryId) ? "✓ Added to my library cards" : "＋ Add to my library cards";
   els.welcomePanel.hidden = true;
   els.districtPanel.hidden = false;
 }
-
+function showDistrict(feature) {
+  const record = findJurisdictionForDistrict(feature);
+  if (record) { showJurisdiction(record, feature); return; }
+  selectedDistrictId = districtId(feature);
+  selectedLibraryId = "district:" + selectedDistrictId;
+  selectedLibraryName = districtName(feature);
+  districtLayer.setStyle(baseStyle);
+  districtLayer.eachLayer(layer => { if (districtId(layer.feature) === selectedDistrictId) layer.bringToFront(); });
+  els.districtName.textContent = districtName(feature);
+  els.systemTypeLabel.textContent = "LIBRARY DISTRICT";
+  els.districtSubtitle.textContent = "Boundary shown; matching system record not available";
+  els.eligibility.textContent = "Check with library";
+  els.ecard.textContent = "Not yet verified";
+  els.libby.textContent = "Not yet verified";
+  els.officialLink.href = STATE_LEGAL_INFO_URL;
+  els.officialLink.textContent = "Find state library information ↗";
+  els.saveButton.classList.toggle("is-saved", isSaved(selectedLibraryId));
+  els.saveButton.textContent = isSaved(selectedLibraryId) ? "✓ Added to my library cards" : "＋ Add to my library cards";
+  els.welcomePanel.hidden = true;
+  els.districtPanel.hidden = false;
+}
 function isSaved(id) {
   return savedCards.some(card => card.id === id);
 }
 
 function resetSelection() {
   selectedDistrictId = null;
+  selectedLibraryId = null;
+  selectedLibraryName = null;
   if (districtLayer) districtLayer.setStyle(baseStyle);
   els.districtPanel.hidden = true;
   els.welcomePanel.hidden = false;
@@ -288,52 +336,6 @@ function normalizeDistrictKey(value) {
     .replace(/[^a-z0-9]/g, "");
 }
 
-function renderDistrictDirectory() {
-  if (!els.directory) return;
-  const query = els.search.value.trim().toLocaleLowerCase();
-  const mappedByKey = new Map();
-  districts.forEach(feature => {
-    const key = normalizeDistrictKey(districtName(feature));
-    if (key && !mappedByKey.has(key)) mappedByKey.set(key, feature);
-  });
-  const entries = OFFICIAL_DISTRICT_NAMES.map(name => ({
-    name,
-    feature: mappedByKey.get(normalizeDistrictKey(name)) || null
-  })).filter(entry => entry.name.toLocaleLowerCase().includes(query))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const mappedCount = entries.filter(entry => entry.feature).length;
-  els.directoryCount.textContent = mappedCount + " mapped / " + entries.length + " shown";
-  els.directory.replaceChildren();
-  entries.forEach(entry => {
-    const li = document.createElement("li");
-    if (entry.feature) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "directory-item";
-      button.textContent = entry.name;
-      button.setAttribute("aria-label", "View " + entry.name);
-      button.addEventListener("click", () => {
-        showDistrict(entry.feature);
-        zoomToDistrict(entry.feature);
-      });
-      li.append(button);
-    } else {
-      li.className = "directory-pending";
-      const name = document.createElement("span");
-      name.textContent = entry.name;
-      const status = document.createElement("small");
-      status.textContent = "Boundary not matched";
-      li.append(name, status);
-    }
-    els.directory.append(li);
-  });
-  if (!entries.length) {
-    const li = document.createElement("li");
-    li.className = "directory-no-results";
-    li.textContent = "No matching districts.";
-    els.directory.append(li);
-  }
-}
 const JURISDICTION_DATA_URL = "https://gis.colorado.gov/public/rest/services/CDE/Libraries/MapServer/0/query?where=1%3D1&outFields=Library%2CLibrary_1%2CLibrary_12%2CLegal_Basis%2CLSA_Population%2CTotal_Central_and_Branches%2CCounty%2CUSER_County%2CUSER_URL%2CUSER_Address%2CUSER_City%2CUSER_Phone%2CUSER_Type%2CUSER___of_branches%2CUSER_Organization%2CUSER_Organization_Legal_Basis&returnGeometry=true&outSR=4326&f=json";
 
 function jurisdictionName(attributes) {
@@ -387,6 +389,7 @@ function renderJurisdictionMarkers() {
       popup.append(link);
     }
     marker.bindPopup(popup);
+    marker.on("click", () => showJurisdiction(record, findJurisdictionBoundary(record)));
     marker.on("mouseover", () => marker.setStyle({ radius: 7, weight: 2, fillOpacity: 1 }));
     marker.on("mouseout", () => marker.setStyle({ radius: 5, weight: 1.4, fillOpacity: 0.95 }));
     marker.addTo(jurisdictionMarkerLayer);
@@ -411,47 +414,46 @@ function renderJurisdictionDirectory() {
   const query = els.search.value.trim().toLocaleLowerCase();
   const entries = jurisdictionRecords.filter(record => {
     const a = record.attributes || {};
-    const searchable = [
-      jurisdictionName(a), a.Legal_Basis, a.County, a.USER_County,
-      a.USER_City, a.USER_Type
-    ].filter(Boolean).join(" ").toLocaleLowerCase();
+    const searchable = [jurisdictionName(a), legalBasisLabel(a.Legal_Basis || a.USER_Organization_Legal_Basis || a.USER_Type), a.County, a.USER_County, a.USER_City].filter(Boolean).join(" ").toLocaleLowerCase();
     return !query || searchable.includes(query);
   }).sort((a, b) => jurisdictionName(a.attributes || {}).localeCompare(jurisdictionName(b.attributes || {})));
-
-  els.jurisdictionCount.textContent = entries.length + " of " + jurisdictionRecords.length;
+  const districtTotal = jurisdictionRecords.filter(record => /^LD$/i.test(String((record.attributes || {}).Legal_Basis || "").trim())).length;
+  els.jurisdictionCount.textContent = entries.length + " of " + jurisdictionRecords.length + " systems" + (districtTotal ? " · " + districtTotal + " districts" : "");
   els.jurisdictionDirectory.replaceChildren();
   entries.forEach(record => {
     const a = record.attributes || {};
     const li = document.createElement("li");
-    li.className = "jurisdiction-item";
-    const heading = document.createElement("strong");
-    heading.textContent = jurisdictionName(a);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "directory-system-button";
+    const title = document.createElement("strong");
+    title.textContent = jurisdictionName(a);
     const meta = document.createElement("span");
-    const legalBasis = a.Legal_Basis || a.USER_Organization_Legal_Basis || "Legal basis not listed";
+    const type = legalBasisLabel(a.Legal_Basis || a.USER_Organization_Legal_Basis || a.USER_Type);
     const county = a.County || a.USER_County || "";
-    const branches = a.Total_Central_and_Branches || a.USER___of_branches;
-    const parts = [legalBasis, county, branches ? branches + " reported locations" : ""].filter(Boolean);
-    meta.textContent = parts.join(" · ");
-    li.append(heading, meta);
-    const website = a.USER_URL;
-    if (website && /^https?:\/\//i.test(website)) {
-      const link = document.createElement("a");
-      link.href = website;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.textContent = "Library website";
-      li.append(link);
-    }
+    const location = [a.USER_City, county ? county + " County" : ""].filter(Boolean).join(" · ");
+    const hasBoundary = Boolean(findJurisdictionBoundary(record));
+    meta.textContent = [type, location, hasBoundary ? "District boundary mapped" : ""].filter(Boolean).join(" · ");
+    button.append(title, meta);
+    button.addEventListener("click", () => {
+      const boundary = findJurisdictionBoundary(record);
+      showJurisdiction(record, boundary);
+      const markerEntry = jurisdictionMarkers.find(item => systemId(item.record) === systemId(record));
+      if (markerEntry) {
+        map.setView(markerEntry.marker.getLatLng(), Math.max(map.getZoom(), 8));
+        markerEntry.marker.openPopup();
+      } else if (boundary) zoomToDistrict(boundary);
+    });
+    li.append(button);
     els.jurisdictionDirectory.append(li);
   });
   if (!entries.length) {
     const li = document.createElement("li");
     li.className = "directory-no-results";
-    li.textContent = "No matching public library jurisdictions.";
+    li.textContent = "No matching public library systems.";
     els.jurisdictionDirectory.append(li);
   }
 }
-
 async function loadJurisdictions() {
   try {
     // This Colorado State GIS layer is a jurisdiction-level inventory, not an
@@ -494,7 +496,6 @@ function applySearch() {
       });
     });
   }
-  renderDistrictDirectory();
   applyJurisdictionMarkerSearch();
   renderJurisdictionDirectory();
 }
@@ -544,13 +545,9 @@ async function loadDistricts() {
       throw new Error("The service returned " + records.length + " records, but none had usable geometry. Fields in first record: " + sample);
     }
     districtLayer = L.geoJSON(districts, { renderer: L.canvas(), smoothFactor: 5, style: baseStyle, onEachFeature: onEachDistrict }).addTo(map);
-    // Some districts contain multiple separate polygons, so count unique district IDs.
-    const districtCount = new Set(districts.map(districtId)).size;
-    // Keep the initial view focused on Colorado instead of fitting potentially oversized district extents.
-    const officialCount = OFFICIAL_DISTRICT_NAMES.length;
-    const countLabel = districtCount + " polygon records / " + officialCount + " official districts";
-    els.districtCount.textContent = countLabel;
-    els.welcomeCount.textContent = districtCount + " / " + officialCount;
+    const districtCount = new Set(districts.map(feature => normalizeDistrictKey(districtName(feature)))).size;
+    els.districtCount.textContent = districtCount + " district boundaries mapped";
+    els.welcomeCount.textContent = String(districtCount);
     applySearch();
   } catch (error) {
     console.error("Failed to load Colorado library district boundaries:", error);
@@ -574,16 +571,12 @@ els.showAll.addEventListener("click", () => {
 });
 document.getElementById("back-to-overview").addEventListener("click", resetSelection);
 els.saveButton.addEventListener("click", () => {
-  if (!selectedDistrictId) return;
-  if (isSaved(selectedDistrictId)) {
-    savedCards = savedCards.filter(card => card.id !== selectedDistrictId);
-  } else {
-    const feature = districts.find(item => districtId(item) === selectedDistrictId);
-    if (feature) savedCards.push({ id: selectedDistrictId, name: districtName(feature) });
-  }
+  if (!selectedLibraryId) return;
+  if (isSaved(selectedLibraryId)) savedCards = savedCards.filter(card => card.id !== selectedLibraryId);
+  else savedCards.push({ id: selectedLibraryId, name: selectedLibraryName || "Library system" });
   persistSavedCards();
-  els.saveButton.classList.toggle("is-saved", isSaved(selectedDistrictId));
-  els.saveButton.textContent = isSaved(selectedDistrictId) ? "✓ Added to my library cards" : "＋ Add to my library cards";
+  els.saveButton.classList.toggle("is-saved", isSaved(selectedLibraryId));
+  els.saveButton.textContent = isSaved(selectedLibraryId) ? "✓ Added to my library cards" : "＋ Add to my library cards";
 });
 
 renderSavedCards();
