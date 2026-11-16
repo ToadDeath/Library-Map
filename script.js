@@ -18,6 +18,9 @@ const map = L.map("map", {
   maxBoundsViscosity: 1
 }).fitBounds(COLORADO_BOUNDS, { padding: [24, 24] });
 
+// Lock the current Colorado overview as the furthest-out zoom level.
+map.setMinZoom(map.getZoom());
+
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
   maxZoom: 16,
   attribution: 'Tiles &copy; Esri',
