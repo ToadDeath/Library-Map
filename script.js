@@ -353,11 +353,24 @@ function renderJurisdictionMarkers() {
     });
     const details = [a.USER_Address, [a.USER_City, a.USER_State].filter(Boolean).join(", "), a.USER_County || a.County].filter(Boolean);
     marker.bindTooltip(name, { direction: "top", offset: [0, -5] });
-    marker.bindPopup("<strong>" + escapeHtml(name) + "</strong>" +
-      (details.length ? "<br>" + details.map(escapeHtml).join("<br>") : "") +
-      (a.USER_URL && /^https?:\/\//i.test(a.USER_URL)
-        ? '<br><a href="' + escapeHtml(a.USER_URL) + '" target="_blank" rel="noopener noreferrer">Library website</a>'
-        : ""));
+    const popup = document.createElement("div");
+    const popupTitle = document.createElement("strong");
+    popupTitle.textContent = name;
+    popup.append(popupTitle);
+    details.forEach(detail => {
+      const line = document.createElement("div");
+      line.textContent = detail;
+      popup.append(line);
+    });
+    if (a.USER_URL && /^https?:\/\//i.test(a.USER_URL)) {
+      const link = document.createElement("a");
+      link.href = a.USER_URL;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "Library website";
+      popup.append(link);
+    }
+    marker.bindPopup(popup);
     marker.addTo(jurisdictionMarkerLayer);
     jurisdictionMarkers.push({ marker, record });
   });
