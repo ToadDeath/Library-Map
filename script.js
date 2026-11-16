@@ -1,7 +1,6 @@
 const DISTRICT_DATA_URL = "./library.zip";
 const STATE_LEGAL_INFO_URL = "https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments";
 const OFFICIAL_DISTRICTS_URL = "https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments";
-const OFFICIAL_DISTRICT_NAMES = ["Arapahoe Library District","Basalt Regional Library District","Berthoud Community Library District","Boulder Public Library District","Clear Creek County Library District","Clearview Library District","Conejos County Library District","Delta County Public Library District","Dolores Library District","Douglas County Libraries","Eagle Valley Library District","East Cheyenne County Library District","East Morgan County Library District","East Routt Library District","Elbert County Library District","Estes Valley Public Library District","Garfield County Library District","Gilpin County Library District","Grand County Library District","Gunnison County Library District","High Plains Library District","Hinsdale County Regional Library District","Ignacio Community Library District","John C. Fremont Library District","Kiowa County Library District","La Veta Regional Library District","Las Animas-Bent County Library District","Lone Cone Library District","Lyons Regional Library District","Mancos Library District","Meeker Regional Library District","Mesa County Public Library District","Montrose Regional Library District","Nederland Community Library District","Northern Chaffee County Library District","Northern Saguache County Library District","Ouray Library District","Penrose Community Library District","Pikes Peak Library District","Pine River Public Library District","Poudre River Public Library District","Pueblo City-County Library District","Rampart Regional Library District","Rangely Regional Library District","Rangeview Library District","Red Feather Mountain Library District","Ridgway Library District","Rio Grande County Library District","San Miguel Library District #1","South Routt Library District","Southern Chaffee County Library District","Southern Teller County Public Library District","Southwest La Plata Library District","Spanish Peaks Library District","Upper San Juan Library District","West Custer County Library District","West Routt Library District"];
 const STORAGE_KEY = "colorado-library-card-finder.saved.v1";
 
 const COLORADO_BOUNDS = L.latLngBounds([36.95, -109.1], [41.1, -102.0]);
@@ -469,6 +468,23 @@ async function loadJurisdictions() {
       if (name !== "Unnamed public library jurisdiction") unique.set(name.toLocaleLowerCase(), feature);
     });
     jurisdictionRecords = [...unique.values()];
+    // Preserve cards saved under the previous district-only interface by matching
+    // their displayed names to the unified library-system records.
+    let migrated = false;
+    savedCards = savedCards.map(card => {
+      const match = jurisdictionRecords.find(record =>
+        normalizeDistrictKey(jurisdictionName(record.attributes || {})) === normalizeDistrictKey(card.name)
+      );
+      if (match && card.id !== systemId(match)) {
+        migrated = true;
+        return { id: systemId(match), name: jurisdictionName(match.attributes || {}) };
+      }
+      return card;
+    });
+    if (migrated) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedCards));
+      renderSavedCards();
+    }
     renderJurisdictionMarkers();
     renderJurisdictionDirectory();
   } catch (error) {
@@ -546,7 +562,6 @@ async function loadDistricts() {
     }
     districtLayer = L.geoJSON(districts, { renderer: L.canvas(), smoothFactor: 5, style: baseStyle, onEachFeature: onEachDistrict }).addTo(map);
     const districtCount = new Set(districts.map(feature => normalizeDistrictKey(districtName(feature)))).size;
-    els.districtCount.textContent = districtCount + " district boundaries mapped";
     els.welcomeCount.textContent = String(districtCount);
     applySearch();
   } catch (error) {
