@@ -151,3 +151,16 @@ h1 { margin: 11px 0 10px; font-size: 27px; line-height: 1.16; letter-spacing: -.
 .leaflet-tooltip-top.jurisdiction-tooltip:before {
   border-top-color: #65b8ff;
 }
+
+/* Unified library-system directory and map legend. */
+.system-legend-swatch { width: 9px; height: 9px; border: 1px solid #eaf2ff; border-radius: 50%; background: #65b8ff; margin-left: 5px; }
+.directory-system-button { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 10px 8px; border: 0; background: transparent; color: #dce5ee; text-align: left; cursor: pointer; }
+.directory-system-button:hover, .directory-system-button:focus-visible { outline: none; background: #2b3743; }
+.directory-system-button strong { font-size: 11px; font-weight: 650; line-height: 1.35; }
+.directory-system-button span { color: var(--muted); font-size: 9px; line-height: 1.45; }
+.map-explainer { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+.map-explainer h2 { margin: 0 0 9px; font-size: 13px; }
+.map-explainer p { margin: 7px 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.map-explainer strong { color: #dce5ee; }
+.map-legend { flex-wrap: wrap; max-width: min(620px, calc(100% - 36px)); line-height: 1.5; }
+@media (max-width: 680px) { .map-legend { max-width: calc(100% - 24px); left: 12px; bottom: 10px; } }
