@@ -9,17 +9,26 @@ const map = L.map("map", {
   zoomControl: false,
   scrollWheelZoom: true,
   preferCanvas: true,
-  maxBounds: COLORADO_BOUNDS,
+  worldCopyJump: false,
+  zoomSnap: 0.5,
+  zoomDelta: 0.5,
+  minZoom: 5.5,
+  maxZoom: 16,
+  maxBounds: COLORADO_BOUNDS.pad(0.08),
   maxBoundsViscosity: 1
 }).fitBounds(COLORADO_BOUNDS, { padding: [24, 24] });
 
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
   maxZoom: 16,
   attribution: 'Tiles &copy; Esri'
+  bounds: COLORADO_BOUNDS,
+  noWrap: true
 }).addTo(map);
 
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}", {
   maxZoom: 16,
+  bounds: COLORADO_BOUNDS,
+  noWrap: true,
   attribution: 'Labels &copy; Esri'
 }).addTo(map);
 L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -37,7 +46,9 @@ async function loadColoradoMask() {
     const data = await response.json();
     const feature = data.features && data.features[0];
     if (!feature || !feature.geometry) throw new Error("Colorado boundary geometry was missing.");
-    const world = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
+    // A regional outer ring avoids a world-sized polygon, which can render oddly
+    // when the map is zoomed out or the basemap wraps horizontally.
+    const world = [[-120, 30], [-95, 30], [-95, 50], [-120, 50], [-120, 30]];
     const geometry = feature.geometry;
     const stateRings = geometry.type === "Polygon"
       ? geometry.coordinates
@@ -52,6 +63,7 @@ async function loadColoradoMask() {
     };
     L.geoJSON(mask, {
       interactive: false,
+      renderer: L.svg({ padding: 2 }),
       pane: "maskPane",
       style: { stroke: false, fillColor: "#171d25", fillOpacity: 1, fillRule: "evenodd" }
     }).addTo(map);
@@ -90,6 +102,7 @@ loadCountyBoundaries();
 
 let districtLayer = null;
 let countyLayer = null;
+let jurisdictionRecords = [];
 let districts = [];
 let selectedDistrictId = null;
 let savedCards = loadSavedCards();
@@ -109,6 +122,8 @@ const els = {
   welcomePanel: document.getElementById("welcome-panel"),
   directory: document.getElementById("district-directory"),
   directoryCount: document.getElementById("directory-count"),
+  jurisdictionDirectory: document.getElementById("jurisdiction-directory"),
+  jurisdictionCount: document.getElementById("jurisdiction-count"),
   districtPanel: document.getElementById("district-panel"),
   districtName: document.getElementById("district-name"),
   districtSubtitle: document.getElementById("district-subtitle"),
@@ -296,6 +311,87 @@ function renderDistrictDirectory() {
     els.directory.append(li);
   }
 }
+const JURISDICTION_DATA_URL = "https://gis.colorado.gov/public/rest/services/CDE/Libraries/MapServer/0/query?where=1%3D1&outFields=Library%2CLibrary_1%2CLibrary_12%2CLegal_Basis%2CLS A_Population%2CTotal_Central_and_Branches%2CCounty%2CUSER_County%2CUSER_URL%2CUSER_Address%2CUSER_City%2CUSER_Phone%2CUSER_Type%2CUSER___of_branches%2CUSER_Organization&returnGeometry=false&f=json";
+
+function jurisdictionName(attributes) {
+  return attributes.Library || attributes.Library_1 || attributes.Library_12 ||
+    attributes.USER_Organization || "Unnamed public library jurisdiction";
+}
+
+function renderJurisdictionDirectory() {
+  if (!els.jurisdictionDirectory) return;
+  const query = els.search.value.trim().toLocaleLowerCase();
+  const entries = jurisdictionRecords.filter(record => {
+    const a = record.attributes || {};
+    const searchable = [
+      jurisdictionName(a), a.Legal_Basis, a.County, a.USER_County,
+      a.USER_City, a.USER_Type
+    ].filter(Boolean).join(" ").toLocaleLowerCase();
+    return !query || searchable.includes(query);
+  }).sort((a, b) => jurisdictionName(a.attributes || {}).localeCompare(jurisdictionName(b.attributes || {})));
+
+  els.jurisdictionCount.textContent = entries.length + " of " + jurisdictionRecords.length;
+  els.jurisdictionDirectory.replaceChildren();
+  entries.forEach(record => {
+    const a = record.attributes || {};
+    const li = document.createElement("li");
+    li.className = "jurisdiction-item";
+    const heading = document.createElement("strong");
+    heading.textContent = jurisdictionName(a);
+    const meta = document.createElement("span");
+    const legalBasis = a.Legal_Basis || a.USER_Organization_Legal_Basis || "Legal basis not listed";
+    const county = a.County || a.USER_County || "";
+    const branches = a.Total_Central_and_Branches || a.USER___of_branches;
+    const parts = [legalBasis, county, branches ? branches + " reported locations" : ""].filter(Boolean);
+    meta.textContent = parts.join(" · ");
+    li.append(heading, meta);
+    const website = a.USER_URL;
+    if (website && /^https?:\/\//i.test(website)) {
+      const link = document.createElement("a");
+      link.href = website;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "Library website";
+      li.append(link);
+    }
+    els.jurisdictionDirectory.append(li);
+  });
+  if (!entries.length) {
+    const li = document.createElement("li");
+    li.className = "directory-no-results";
+    li.textContent = "No matching public library jurisdictions.";
+    els.jurisdictionDirectory.append(li);
+  }
+}
+
+async function loadJurisdictions() {
+  try {
+    // This Colorado State GIS layer is a jurisdiction-level inventory, not an
+    // outlet-level branch list. Keep it separate from physical library markers.
+    const response = await fetch(JURISDICTION_DATA_URL.replace("LS A_Population", "LSA_Population"));
+    if (!response.ok) throw new Error("Library jurisdiction inventory returned " + response.status);
+    const data = await response.json();
+    if (!Array.isArray(data.features)) throw new Error("Unexpected library jurisdiction data format.");
+    const unique = new Map();
+    data.features.forEach(feature => {
+      const a = feature.attributes || {};
+      const name = jurisdictionName(a);
+      if (name !== "Unnamed public library jurisdiction") unique.set(name.toLocaleLowerCase(), feature);
+    });
+    jurisdictionRecords = [...unique.values()];
+    renderJurisdictionDirectory();
+  } catch (error) {
+    console.warn("Could not load Colorado public library jurisdiction inventory:", error);
+    if (els.jurisdictionCount) els.jurisdictionCount.textContent = "Inventory unavailable";
+    if (els.jurisdictionDirectory) {
+      const li = document.createElement("li");
+      li.className = "directory-no-results";
+      li.textContent = "The state library inventory could not be loaded. Use the official Colorado library standards for the current jurisdiction breakdown.";
+      els.jurisdictionDirectory.replaceChildren(li);
+    }
+  }
+}
+
 function applySearch() {
   const query = els.search.value.trim().toLocaleLowerCase();
   els.clearSearch.hidden = !query;
@@ -310,6 +406,7 @@ function applySearch() {
     });
   }
   renderDistrictDirectory();
+  renderJurisdictionDirectory();
 }
 
 function zoomToDistrict(feature) {
@@ -401,3 +498,4 @@ els.saveButton.addEventListener("click", () => {
 
 renderSavedCards();
 loadDistricts();
+loadJurisdictions();
