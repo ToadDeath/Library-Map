@@ -164,3 +164,30 @@ h1 { margin: 11px 0 10px; font-size: 27px; line-height: 1.16; letter-spacing: -.
 .map-explainer strong { color: #dce5ee; }
 .map-legend { flex-wrap: wrap; max-width: min(620px, calc(100% - 36px)); line-height: 1.5; }
 @media (max-width: 680px) { .map-legend { max-width: calc(100% - 24px); left: 12px; bottom: 10px; } }
+
+
+/* Keep the desktop app inside the viewport. Only the side panel scrolls. */
+@media (min-width: 681px) {
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+  .app-shell {
+    height: calc(100vh - 68px);
+    min-height: 0;
+    overflow: hidden;
+  }
+  .map-section {
+    height: 100%;
+    min-height: 0;
+  }
+  #map {
+    min-height: 0;
+  }
+  .side-panel {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
