@@ -344,15 +344,22 @@ function renderJurisdictionMarkers() {
     const a = record.attributes || {};
     const name = jurisdictionName(a);
     const marker = L.circleMarker([geometry.y, geometry.x], {
-      radius: 4,
+      radius: 5,
       color: "#eaf2ff",
-      weight: 1.25,
-      opacity: 0.95,
+      weight: 1.4,
+      opacity: 1,
       fillColor: "#65b8ff",
-      fillOpacity: 0.9
+      fillOpacity: 0.95,
+      bubblingMouseEvents: false
     });
     const details = [a.USER_Address, [a.USER_City, a.USER_State].filter(Boolean).join(", "), a.USER_County || a.County].filter(Boolean);
-    marker.bindTooltip(name, { direction: "top", offset: [0, -5] });
+    marker.bindTooltip(name, {
+      direction: "top",
+      offset: [0, -7],
+      sticky: true,
+      opacity: 1,
+      className: "jurisdiction-tooltip"
+    });
     const popup = document.createElement("div");
     const popupTitle = document.createElement("strong");
     popupTitle.textContent = name;
