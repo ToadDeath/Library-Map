@@ -21,6 +21,17 @@ const map = L.map("map", {
 // Lock the current Colorado overview as the furthest-out zoom level.
 map.setMinZoom(map.getZoom());
 
+const overviewMinZoom = map.getMinZoom();
+function updatePanAvailability() {
+  if (map.getZoom() <= overviewMinZoom) {
+    map.dragging.disable();
+  } else {
+    map.dragging.enable();
+  }
+}
+updatePanAvailability();
+map.on("zoomend", updatePanAvailability);
+
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
   maxZoom: 16,
   attribution: 'Tiles &copy; Esri',
