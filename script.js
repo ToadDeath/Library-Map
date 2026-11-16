@@ -32,6 +32,9 @@ function updatePanAvailability() {
 updatePanAvailability();
 map.on("zoomend", updatePanAvailability);
 
+const jurisdictionMarkerLayer = L.layerGroup().addTo(map);
+let jurisdictionMarkers = [];
+
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
   maxZoom: 16,
   attribution: 'Tiles &copy; Esri',
@@ -325,11 +328,51 @@ function renderDistrictDirectory() {
     els.directory.append(li);
   }
 }
-const JURISDICTION_DATA_URL = "https://gis.colorado.gov/public/rest/services/CDE/Libraries/MapServer/0/query?where=1%3D1&outFields=Library%2CLibrary_1%2CLibrary_12%2CLegal_Basis%2CLSA_Population%2CTotal_Central_and_Branches%2CCounty%2CUSER_County%2CUSER_URL%2CUSER_Address%2CUSER_City%2CUSER_Phone%2CUSER_Type%2CUSER___of_branches%2CUSER_Organization%2CUSER_Organization_Legal_Basis&returnGeometry=false&f=json";
+const JURISDICTION_DATA_URL = "https://gis.colorado.gov/public/rest/services/CDE/Libraries/MapServer/0/query?where=1%3D1&outFields=Library%2CLibrary_1%2CLibrary_12%2CLegal_Basis%2CLSA_Population%2CTotal_Central_and_Branches%2CCounty%2CUSER_County%2CUSER_URL%2CUSER_Address%2CUSER_City%2CUSER_Phone%2CUSER_Type%2CUSER___of_branches%2CUSER_Organization%2CUSER_Organization_Legal_Basis&returnGeometry=true&f=json";&outSR=4326
 
 function jurisdictionName(attributes) {
   return attributes.Library || attributes.Library_1 || attributes.Library_12 ||
     attributes.USER_Organization || "Unnamed public library jurisdiction";
+}
+
+function renderJurisdictionMarkers() {
+  jurisdictionMarkerLayer.clearLayers();
+  jurisdictionMarkers = [];
+  jurisdictionRecords.forEach(record => {
+    const geometry = record.geometry;
+    if (!geometry || !Number.isFinite(geometry.x) || !Number.isFinite(geometry.y)) return;
+    const a = record.attributes || {};
+    const name = jurisdictionName(a);
+    const marker = L.circleMarker([geometry.y, geometry.x], {
+      radius: 4,
+      color: "#eaf2ff",
+      weight: 1.25,
+      opacity: 0.95,
+      fillColor: "#65b8ff",
+      fillOpacity: 0.9
+    });
+    const details = [a.USER_Address, [a.USER_City, a.USER_State].filter(Boolean).join(", "), a.USER_County || a.County].filter(Boolean);
+    marker.bindTooltip(name, { direction: "top", offset: [0, -5] });
+    marker.bindPopup("<strong>" + escapeHtml(name) + "</strong>" +
+      (details.length ? "<br>" + details.map(escapeHtml).join("<br>") : "") +
+      (a.USER_URL && /^https?:\\/\\//i.test(a.USER_URL)
+        ? '<br><a href="' + escapeHtml(a.USER_URL) + '" target="_blank" rel="noopener noreferrer">Library website</a>'
+        : ""));
+    marker.addTo(jurisdictionMarkerLayer);
+    jurisdictionMarkers.push({ marker, record });
+  });
+  applyJurisdictionMarkerSearch();
+}
+
+function applyJurisdictionMarkerSearch() {
+  const query = els.search.value.trim().toLocaleLowerCase();
+  jurisdictionMarkers.forEach(({ marker, record }) => {
+    const a = record.attributes || {};
+    const searchable = [jurisdictionName(a), a.Legal_Basis, a.County, a.USER_County,
+      a.USER_City, a.USER_Type].filter(Boolean).join(" ").toLocaleLowerCase();
+    const matches = !query || searchable.includes(query);
+    marker.setStyle({ opacity: matches ? 0.95 : 0.12, fillOpacity: matches ? 0.9 : 0.04 });
+  });
 }
 
 function renderJurisdictionDirectory() {
@@ -393,6 +436,7 @@ async function loadJurisdictions() {
       if (name !== "Unnamed public library jurisdiction") unique.set(name.toLocaleLowerCase(), feature);
     });
     jurisdictionRecords = [...unique.values()];
+    renderJurisdictionMarkers();
     renderJurisdictionDirectory();
   } catch (error) {
     console.warn("Could not load Colorado public library jurisdiction inventory:", error);
@@ -420,6 +464,7 @@ function applySearch() {
     });
   }
   renderDistrictDirectory();
+  applyJurisdictionMarkerSearch();
   renderJurisdictionDirectory();
 }
 
