@@ -20,7 +20,7 @@ const map = L.map("map", {
 
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
   maxZoom: 16,
-  attribution: 'Tiles &copy; Esri'
+  attribution: 'Tiles &copy; Esri',
   bounds: COLORADO_BOUNDS,
   noWrap: true
 }).addTo(map);
@@ -311,7 +311,7 @@ function renderDistrictDirectory() {
     els.directory.append(li);
   }
 }
-const JURISDICTION_DATA_URL = "https://gis.colorado.gov/public/rest/services/CDE/Libraries/MapServer/0/query?where=1%3D1&outFields=Library%2CLibrary_1%2CLibrary_12%2CLegal_Basis%2CLS A_Population%2CTotal_Central_and_Branches%2CCounty%2CUSER_County%2CUSER_URL%2CUSER_Address%2CUSER_City%2CUSER_Phone%2CUSER_Type%2CUSER___of_branches%2CUSER_Organization&returnGeometry=false&f=json";
+const JURISDICTION_DATA_URL = "https://gis.colorado.gov/public/rest/services/CDE/Libraries/MapServer/0/query?where=1%3D1&outFields=Library%2CLibrary_1%2CLibrary_12%2CLegal_Basis%2CLSA_Population%2CTotal_Central_and_Branches%2CCounty%2CUSER_County%2CUSER_URL%2CUSER_Address%2CUSER_City%2CUSER_Phone%2CUSER_Type%2CUSER___of_branches%2CUSER_Organization%2CUSER_Organization_Legal_Basis&returnGeometry=false&f=json";
 
 function jurisdictionName(attributes) {
   return attributes.Library || attributes.Library_1 || attributes.Library_12 ||
@@ -368,7 +368,7 @@ async function loadJurisdictions() {
   try {
     // This Colorado State GIS layer is a jurisdiction-level inventory, not an
     // outlet-level branch list. Keep it separate from physical library markers.
-    const response = await fetch(JURISDICTION_DATA_URL.replace("LS A_Population", "LSA_Population"));
+    const response = await fetch(JURISDICTION_DATA_URL);
     if (!response.ok) throw new Error("Library jurisdiction inventory returned " + response.status);
     const data = await response.json();
     if (!Array.isArray(data.features)) throw new Error("Unexpected library jurisdiction data format.");
