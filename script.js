@@ -16,7 +16,7 @@ const map = L.map("map", {
   maxZoom: 16,
   maxBounds: COLORADO_BOUNDS.pad(0.08),
   maxBoundsViscosity: 1
-}).fitBounds(COLORADO_BOUNDS, { padding: [24, 24] });
+}).setView([39.0, -105.5], 5.5);
 
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
   maxZoom: 16,
