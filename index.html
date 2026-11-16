@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#171b22">
   <title>Colorado Library Card Finder</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="style.css?v=20261116-marker-interaction">
+  <link rel="stylesheet" href="style.css?v=20261116-unified-systems">
 </head>
 <body>
   <header class="topbar">
@@ -14,21 +14,21 @@
       <span class="brand-mark">CO</span>
       <span><strong>Colorado Library Card Finder</strong><small>Find libraries. Unlock more books.</small></span>
     </a>
-    <div class="topbar-meta"><span id="district-count">Loading districts…</span><span class="saved-count" id="saved-count">0 saved cards</span></div>
+    <div class="topbar-meta"><span id="district-count">Loading library systems…</span><span class="saved-count" id="saved-count">0 saved cards</span></div>
   </header>
 
   <main class="app-shell">
-    <section class="map-section" aria-label="Map of Colorado library districts">
+    <section class="map-section" aria-label="Map of Colorado public library systems and service areas">
       <div class="map-toolbar">
         <label class="search-wrap" for="district-search">
           <span aria-hidden="true">⌕</span>
-          <input id="district-search" type="search" placeholder="Search libraries and districts…" autocomplete="off">
+          <input id="district-search" type="search" placeholder="Search library systems, towns, or counties…" autocomplete="off">
           <button id="clear-search" class="clear-search" type="button" aria-label="Clear search" hidden>×</button>
         </label>
-        <button id="show-all" class="toolbar-button" type="button">Show all districts</button>
+        <button id="show-all" class="toolbar-button" type="button">Show all systems</button>
       </div>
       <div id="map"></div>
-      <div class="map-legend"><span class="legend-swatch"></span> Library district <span class="county-legend-swatch"></span> County boundary <span class="legend-note">Select a district to explore</span></div>
+      <div class="map-legend"><span class="legend-swatch"></span> District service area <span class="system-legend-swatch"></span> Library system marker <span class="county-legend-swatch"></span> County reference <span class="legend-note">Select a marker or shaded area</span></div>
       <div id="map-error" class="map-error" hidden></div>
     </section>
 
@@ -36,53 +36,56 @@
       <section id="welcome-panel" class="welcome-panel">
         <div class="eyebrow">COLORADO LIBRARIES</div>
         <h1>Your next library card might be closer than you think.</h1>
-        <p>Explore library district service areas, check card options, and keep track of the cards you have.</p>
+        <p>Find the public library system serving an area, explore its service-area information, and keep track of the library cards you have.</p>
         <div class="welcome-stats">
-          <div><strong id="welcome-district-count">—</strong><span>districts mapped / official list</span></div>
+          <div><strong id="welcome-district-count">—</strong><span>district boundaries mapped</span></div>
           <div><strong id="welcome-saved-count">0</strong><span>cards saved</span></div>
         </div>
-        <div class="hint"><span>↖</span> Select a district on the map or search by name to get started.</div>
-        <div class="directory-heading"><h2>All 57 official library districts</h2><span id="directory-count">Loading…</span></div>
-        <p class="directory-note">This list follows the Colorado State Library legal-document directory. Entries marked “Boundary not matched” are not currently matched to a polygon in our map data. County outlines are references only, not card-eligibility boundaries.</p>
-        <ul id="district-directory" class="district-directory" aria-label="All mapped Colorado library districts"></ul>
-        <div class="directory-heading jurisdiction-heading"><h2>Colorado public library jurisdictions</h2><span id="jurisdiction-count">Loading…</span></div>
-        <p class="directory-note">Includes district, municipal, county, city-county, and joint public library jurisdictions. This is a system-level inventory, not a list of branch addresses or verified service-area polygons.</p>
-        <ul id="jurisdiction-directory" class="district-directory jurisdiction-directory" aria-label="Colorado public library jurisdictions"></ul>
+        <div class="hint"><span>↖</span> Select a library system marker or a shaded district area, or search by system name, town, or county.</div>
+        <div class="directory-heading"><h2>Colorado public library systems</h2><span id="jurisdiction-count">Loading…</span></div>
+        <p class="directory-note">Each entry is a public library system, whether it is organized as a library district, city or town library, county library, or joint system. A district is one type of jurisdiction, not a separate kind of library. The map marker represents the system, not every branch. Shaded areas show district boundaries only where matching boundary data is available.</p>
+        <ul id="jurisdiction-directory" class="district-directory jurisdiction-directory" aria-label="Colorado public library systems"></ul>
+        <div class="map-explainer">
+          <h2>How the map works</h2>
+          <p><strong>Library system marker:</strong> identifies a public library organization. One system may operate several branches.</p>
+          <p><strong>Shaded district area:</strong> shows the legal service area of a library district where boundary data is available. Not every library system is a district, and not every district boundary is currently mapped.</p>
+          <p><strong>County outline:</strong> geographic reference only. County lines do not determine library-card eligibility.</p>
+        </div>
       </section>
 
       <section id="district-panel" class="district-panel" hidden>
-        <button id="back-to-overview" class="back-button" type="button">← All districts</button>
-        <div class="eyebrow">LIBRARY DISTRICT</div>
+        <button id="back-to-overview" class="back-button" type="button">← All library systems</button>
+        <div class="eyebrow" id="system-type-label">PUBLIC LIBRARY SYSTEM</div>
         <h1 id="district-name">District name</h1>
-        <p id="district-subtitle" class="district-subtitle">Colorado</p>
+        <p id="district-subtitle" class="district-subtitle">Library system information</p>
         <button id="save-card" class="save-button" type="button">＋ Add to my library cards</button>
 
         <div class="detail-section">
-          <h2>Getting a library card</h2>
-          <div class="detail-row"><span>Who can get a card?</span><strong id="eligibility-value">Not researched yet</strong></div>
+          <h2>Library card information</h2>
+          <div class="detail-row"><span>Who can apply?</span><strong id="eligibility-value">Not researched yet</strong></div>
           <div class="detail-row"><span>Online / e-card signup</span><strong id="ecard-value">Not researched yet</strong></div>
           <div class="detail-row"><span>Libby access with e-card</span><strong id="libby-value">Not researched yet</strong></div>
         </div>
 
         <div class="detail-section">
-          <h2>Library links</h2>
-          <a id="official-link" class="resource-link" href="https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments" target="_blank" rel="noopener noreferrer">Find official district information ↗</a>
+          <h2>Library information</h2>
+          <a id="official-link" class="resource-link" href="https://ed.cde.state.co.us/cdelib/librarydevelopment-publiclibraries-legaldocuments" target="_blank" rel="noopener noreferrer">Visit library website ↗</a>
           <p class="source-note">Card rules and digital access will be checked against each library's own published information. Unknown details are left unconfirmed rather than guessed.</p>
         </div>
-        <div class="data-note" id="boundary-note">Boundary data: Colorado Department of Local Affairs. Boundaries are approximate and should be confirmed with the library.</div>
+        <div class="data-note" id="boundary-note">District boundaries are shown only where matching state boundary data is available. Confirm eligibility with the library system.</div>
       </section>
 
       <section class="saved-section">
         <div class="saved-heading"><h2>My library cards</h2><span id="saved-heading-count">0</span></div>
-        <p id="saved-empty" class="saved-empty">Save districts here to build your list of library cards.</p>
+        <p id="saved-empty" class="saved-empty">Save library systems here to keep track of your library cards.</p>
         <ul id="saved-list" class="saved-list"></ul>
       </section>
-      <footer class="panel-footer">An independent project. Always confirm eligibility and card terms with the library before applying. Service-area boundaries are being reconciled against state library records.</footer>
+      <footer class="panel-footer">An independent project. Always confirm eligibility and card terms with the library before applying. System markers are not a complete branch-location map.</footer>
     </aside>
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/shpjs/6.2.0/shp.min.js"></script>
-  <script src="script.js?v=20261116-marker-interaction"></script>
+  <script src="script.js?v=20261116-unified-systems"></script>
 </body>
 </html>
