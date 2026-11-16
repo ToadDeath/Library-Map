@@ -32,6 +32,12 @@ function updatePanAvailability() {
 updatePanAvailability();
 map.on("zoomend", updatePanAvailability);
 
+// Keep library markers in a dedicated pane above district polygons. The district
+// layer uses a canvas renderer, which can otherwise sit over and intercept marker
+// hover/click events even where its polygons are visually transparent.
+map.createPane("libraryMarkerPane");
+map.getPane("libraryMarkerPane").style.zIndex = "625";
+const jurisdictionMarkerRenderer = L.svg({ pane: "libraryMarkerPane" });
 const jurisdictionMarkerLayer = L.layerGroup().addTo(map);
 let jurisdictionMarkers = [];
 
@@ -350,6 +356,9 @@ function renderJurisdictionMarkers() {
       opacity: 1,
       fillColor: "#65b8ff",
       fillOpacity: 0.95,
+      pane: "libraryMarkerPane",
+      renderer: jurisdictionMarkerRenderer,
+      interactive: true,
       bubblingMouseEvents: false
     });
     const details = [a.USER_Address, [a.USER_City, a.USER_State].filter(Boolean).join(", "), a.USER_County || a.County].filter(Boolean);
@@ -378,6 +387,8 @@ function renderJurisdictionMarkers() {
       popup.append(link);
     }
     marker.bindPopup(popup);
+    marker.on("mouseover", () => marker.setStyle({ radius: 7, weight: 2, fillOpacity: 1 }));
+    marker.on("mouseout", () => marker.setStyle({ radius: 5, weight: 1.4, fillOpacity: 0.95 }));
     marker.addTo(jurisdictionMarkerLayer);
     jurisdictionMarkers.push({ marker, record });
   });
