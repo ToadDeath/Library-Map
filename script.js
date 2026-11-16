@@ -314,7 +314,7 @@ function renderSavedCards() {
     remove.addEventListener("click", () => {
       savedCards = savedCards.filter(item => item.id !== card.id);
       persistSavedCards();
-      if (selectedDistrictId === card.id) {
+      if (selectedLibraryId === card.id) {
         els.saveButton.classList.remove("is-saved");
         els.saveButton.textContent = "＋ Add to my library cards";
       }
