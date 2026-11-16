@@ -328,7 +328,7 @@ function renderDistrictDirectory() {
     els.directory.append(li);
   }
 }
-const JURISDICTION_DATA_URL = "https://gis.colorado.gov/public/rest/services/CDE/Libraries/MapServer/0/query?where=1%3D1&outFields=Library%2CLibrary_1%2CLibrary_12%2CLegal_Basis%2CLSA_Population%2CTotal_Central_and_Branches%2CCounty%2CUSER_County%2CUSER_URL%2CUSER_Address%2CUSER_City%2CUSER_Phone%2CUSER_Type%2CUSER___of_branches%2CUSER_Organization%2CUSER_Organization_Legal_Basis&returnGeometry=true&f=json";&outSR=4326
+const JURISDICTION_DATA_URL = "https://gis.colorado.gov/public/rest/services/CDE/Libraries/MapServer/0/query?where=1%3D1&outFields=Library%2CLibrary_1%2CLibrary_12%2CLegal_Basis%2CLSA_Population%2CTotal_Central_and_Branches%2CCounty%2CUSER_County%2CUSER_URL%2CUSER_Address%2CUSER_City%2CUSER_Phone%2CUSER_Type%2CUSER___of_branches%2CUSER_Organization%2CUSER_Organization_Legal_Basis&returnGeometry=true&outSR=4326&f=json";
 
 function jurisdictionName(attributes) {
   return attributes.Library || attributes.Library_1 || attributes.Library_12 ||
@@ -355,7 +355,7 @@ function renderJurisdictionMarkers() {
     marker.bindTooltip(name, { direction: "top", offset: [0, -5] });
     marker.bindPopup("<strong>" + escapeHtml(name) + "</strong>" +
       (details.length ? "<br>" + details.map(escapeHtml).join("<br>") : "") +
-      (a.USER_URL && /^https?:\\/\\//i.test(a.USER_URL)
+      (a.USER_URL && /^https?:\/\//i.test(a.USER_URL)
         ? '<br><a href="' + escapeHtml(a.USER_URL) + '" target="_blank" rel="noopener noreferrer">Library website</a>'
         : ""));
     marker.addTo(jurisdictionMarkerLayer);
