@@ -22,7 +22,7 @@
       <div class="map-toolbar">
         <label class="search-wrap" for="district-search">
           <span aria-hidden="true">⌕</span>
-          <input id="district-search" type="search" placeholder="Search library districts…" autocomplete="off">
+          <input id="district-search" type="search" placeholder="Search libraries and districts…" autocomplete="off">
           <button id="clear-search" class="clear-search" type="button" aria-label="Clear search" hidden>×</button>
         </label>
         <button id="show-all" class="toolbar-button" type="button">Show all districts</button>
@@ -45,6 +45,9 @@
         <div class="directory-heading"><h2>All 57 official library districts</h2><span id="directory-count">Loading…</span></div>
         <p class="directory-note">This list follows the Colorado State Library legal-document directory. Entries marked “Boundary not matched” are not currently matched to a polygon in our map data. County outlines are references only, not card-eligibility boundaries.</p>
         <ul id="district-directory" class="district-directory" aria-label="All mapped Colorado library districts"></ul>
+        <div class="directory-heading jurisdiction-heading"><h2>Colorado public library jurisdictions</h2><span id="jurisdiction-count">Loading…</span></div>
+        <p class="directory-note">Includes district, municipal, county, city-county, and joint public library jurisdictions. This is a system-level inventory, not a list of branch addresses or verified service-area polygons.</p>
+        <ul id="jurisdiction-directory" class="district-directory jurisdiction-directory" aria-label="Colorado public library jurisdictions"></ul>
       </section>
 
       <section id="district-panel" class="district-panel" hidden>
@@ -74,7 +77,7 @@
         <p id="saved-empty" class="saved-empty">Save districts here to build your list of library cards.</p>
         <ul id="saved-list" class="saved-list"></ul>
       </section>
-      <footer class="panel-footer">An independent project. Always confirm eligibility and card terms with the library before applying.</footer>
+      <footer class="panel-footer">An independent project. Always confirm eligibility and card terms with the library before applying. Service-area boundaries are being reconciled against state library records.</footer>
     </aside>
   </main>
 
