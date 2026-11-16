@@ -132,3 +132,22 @@ h1 { margin: 11px 0 10px; font-size: 27px; line-height: 1.16; letter-spacing: -.
 .jurisdiction-item a { color: var(--blue); font-size: 10px; text-decoration: none; width: fit-content; }
 .jurisdiction-item a:hover { text-decoration: underline; }
 .leaflet-container { background: #171d25; }
+
+/* Suppress the browser focus ring on the map surface itself, not its controls. */
+#map:focus,
+.leaflet-container:focus {
+  outline: none;
+}
+.jurisdiction-tooltip {
+  background: #202833;
+  border: 1px solid #65b8ff;
+  border-radius: 6px;
+  color: #f2f7ff;
+  box-shadow: 0 4px 14px #0008;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 8px;
+}
+.leaflet-tooltip-top.jurisdiction-tooltip:before {
+  border-top-color: #65b8ff;
+}
